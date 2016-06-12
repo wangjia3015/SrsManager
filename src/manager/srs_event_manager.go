@@ -1,12 +1,10 @@
-package srsevent
+package manager
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"room"
 )
 
 const (
@@ -85,7 +83,6 @@ func (s *SrsEventManager) OnClose(info ConnectInfo) error { return nil }
 
 // 主播推送时
 func (s *SrsEventManager) OnPublish(info ConnectInfo) error {
-	token := "abc"
 	return nil
 }
 

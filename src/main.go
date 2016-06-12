@@ -1,9 +1,9 @@
 package main
 
 import (
+	"flag"
+	"manager"
 	"net/http"
-	"room"
-	"srsevent"
 )
 
 /*
@@ -21,8 +21,12 @@ import (
 */
 
 func main() {
-	http.HandleFunc("/event", srsevent.SrsEventsHandler)
-	http.HandlerFunc("/room/", nil) // PUT 处理room 创建
-	http.HandlerFunc("/room/", nil) // DELETE 处理踢人
+	// init
+	flag.Parse()
+
+	// regist handler
+	http.HandleFunc("/event", manager.SrsEventsHandler)
+	//http.HandlerFunc("/room/", nil) // PUT 处理room 创建
+	//http.HandlerFunc("/room/", nil) // DELETE 处理踢人
 	http.ListenAndServe(":8085", nil)
 }
