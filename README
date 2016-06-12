@@ -3,3 +3,21 @@ TODO
 2. 完成验证模块
 3. 是否增加人数过多禁止联入的情况
 
+
+1. 通过用户名称，获取token 和 stream_name
+request
+{
+    "user_name" : "",
+    "desc"  : ""
+}
+
+response
+{
+    "token": "",
+    "stream_name" : "",
+    "expiration": 1234567890,
+    "user_name" : "",
+}
+
+token = md5(stream_name + expiration + salt)
+2. kickoff user

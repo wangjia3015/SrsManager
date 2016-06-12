@@ -1,4 +1,4 @@
-package srs_opt
+package srs_client
 
 import (
 	"encoding/json"

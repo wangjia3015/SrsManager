@@ -21,7 +21,8 @@ import (
 */
 
 func main() {
-	http.HandleFunc("/srsevent", srsevent.SrsEventsHandler)
-	http.HandleFunc("/room/", room.RoomHandler)
+	http.HandleFunc("/event", srsevent.SrsEventsHandler)
+	http.HandlerFunc("/room/", nil) // PUT 处理room 创建
+	http.HandlerFunc("/room/", nil) // DELETE 处理踢人
 	http.ListenAndServe(":8085", nil)
 }

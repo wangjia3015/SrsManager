@@ -40,6 +40,8 @@ type ConnectInfo struct {
 	PageUrl    string `json:"pageUrl"` // connect 专属
 }
 
+var srs_event_manager SrsEventManager
+
 func SrsEventsHandler(w http.ResponseWriter, req *http.Request) {
 	var ret []byte
 	var info ConnectInfo
@@ -55,59 +57,43 @@ func SrsEventsHandler(w http.ResponseWriter, req *http.Request) {
 		ret = []byte("-1")
 		// log error
 	} else {
+		// LOG
 		fmt.Printf("%+v\n", info)
-		if info.Action == SRS_CB_ACTION_ON_PUBLISH {
+		switch info.Action {
+		case SRS_CB_ACTION_ON_PUBLISH:
+			err = srs_event_manager.OnPublish(info)
 		}
-		ret = []byte("0")
+		if err != nil {
+			// TODO log
+			ret = []byte("-3")
+		} else {
+			ret = []byte("0")
+		}
 	}
 	w.Write(ret)
 }
 
 type SrsEventManager struct {
-	checkroom room.CheckRoomlegal // 判断room name是否有效
-	// 增加判断情况用户是否有效
+	// checkroom room.CheckRoomlegal // 判断room name是否有效
 }
 
 // 建立链接时
-func (s *SrsEventManager) OnConnect(info ConnectInfo) error {
-	return nil
-}
+func (s *SrsEventManager) OnConnect(info ConnectInfo) error { return nil }
 
 // 关闭连接时
-func (s *SrsEventManager) OnClose(info ConnectInfo) error {
-	return nil
-}
+func (s *SrsEventManager) OnClose(info ConnectInfo) error { return nil }
 
-/*
-	提供两个方式关闭直播
-	1. 关闭这个用户所有的直播
-	2. 关闭某个直播
-*/
+// 主播推送时
 func (s *SrsEventManager) OnPublish(info ConnectInfo) error {
-	// TODO 用INFO 来计算token
 	token := "abc"
-
-	// 判断用户是否也被禁用了
-
-	// 判断是否被ban掉了
-	if s.checkroom != nil && !s.checkroom.IsRoomExists(token) {
-		return errors.New("room not exists")
-	}
 	return nil
 }
 
-func (s *SrsEventManager) OnUnpublish(info ConnectInfo) error {
-	// 用来统计
-	return nil
-}
+func (s *SrsEventManager) OnUnpublish(info ConnectInfo) error { return nil }
 
-func (s *SrsEventManager) OnPlay(info ConnectInfo) error {
-	// 用来判断用户是否有权限播放
-	return nil
-}
+// 用来判断用户是否有权限播放
+func (s *SrsEventManager) OnPlay(info ConnectInfo) error { return nil }
 
 // 当客户端停止播放时。
 // 备注：停止播放可能不会关闭连接，还能再继续播放
-func (s *SrsEventManager) OnStop(info ConnectInfo) error {
-	return nil
-}
+func (s *SrsEventManager) OnStop(info ConnectInfo) error { return nil }
