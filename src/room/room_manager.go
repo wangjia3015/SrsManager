@@ -35,9 +35,6 @@ type CheckRoomlegal interface {
 	IsRoomExists(roomName string) bool
 }
 
-/*
-	现阶段 一个room 一个视频：
-*/
 type RoomManager struct {
 	room_map map[string]string
 	mutex    sync.Mutex
@@ -48,12 +45,6 @@ func (r *RoomManager) IsRoomExists(roomName string) bool {
 	defer r.mutex.Unlock()
 	_, ok := r.room_map[roomName]
 	return ok
-}
-
-func GetMD5String(str string) string {
-	h := md5.New()
-	h.Write([]byte(str))
-	return hex.EncodeToString(h.Sum(nil))
 }
 
 func (r *RoomManager) tryAddRoom(roomName, userName string) bool {

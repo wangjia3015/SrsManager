@@ -20,10 +20,6 @@ import (
 	2. 定时拉取每个srs server的系统信息
 */
 
-func SayHello(w http.ResponseWriter, req *http.Request) {
-	w.Write([]byte("hello"))
-}
-
 func main() {
 	http.HandleFunc("/srsevent", srsevent.SrsEventsHandler)
 	http.HandleFunc("/room/", room.RoomHandler)
