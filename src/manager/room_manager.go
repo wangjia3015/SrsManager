@@ -1,11 +1,14 @@
 package manager
 
 import (
+	"encoding/json"
 	"fmt"
-	"github.com/golang/glog"
+	"io/ioutil"
 	"net/http"
 	"time"
 	"utils"
+
+	"github.com/golang/glog"
 )
 
 const (
@@ -15,51 +18,79 @@ const (
 	HTTP_DELETE = "DELETE"
 )
 
-var room_manager RoomManager
-
-func RoomHandler(w http.ResponseWriter, req *http.Request) {
+func (r *RoomManager) HttpHandler(w http.ResponseWriter, req *http.Request) {
+	glog.Infoln("RoomManager", req.Method)
 	var err error
-	url := req.URL.Path
+	var result []byte
 
-	// split
-	value := "create"
+	if result, err = ioutil.ReadAll(req.Body); err != nil {
+		glog.Warningln("ReadBody err", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
 	switch req.Method {
 	case HTTP_POST:
-		err = room_manager.CreateRoom()
+		var req RoomCreateReq
+		var room Room
+		if err = json.Unmarshal(result, &req); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+		} else if room, err = r.CreateRoom(req); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		} else if result, err = json.Marshal(room); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		} else {
+			w.Write(result)
+		}
+		if err != nil {
+			return
+		}
 	case HTTP_DELETE:
-		err = room_manager.KickoffRoom(value)
+		//err = room_manager.KickoffRoom(value)
 	}
 }
 
 type RoomManager struct {
+	db *DBSync
 }
 
 const (
 	SALT = "JD_STD_2016"
 )
 
-type Room struct {
-	UserName string
-	Desc     string
-
-	Token      string // ??
-	StreamName string
-	Expiration int64 // unixtime
+type RoomCreateReq struct {
+	Name string
+	Desc string
 }
 
-func (r *Room) GetToken() string {
-	str := fmt.Sprintf("%s_%d_%s", r.StreamName, r.Expiration, SALT)
-	str = utils.GetMd5String(str)
+type Room struct {
+	Id              int
+	UserName        string
+	Desc            string
+	StreamName      string
+	Token           string
+	Expiration      int64
+	PublishClientId int
+	PublishHost     string
+}
+
+func GetToken(stream string, expiration int64) string {
+	str := fmt.Sprintf("%s_%d_%s", stream, expiration, SALT)
+	str = utils.GetMD5String(str)
 	return str
 }
 
 // 1. 创建一条记录
-func (r *RoomManager) CreateRoom(req *http.Request) (Room, error) {
+func (r *RoomManager) CreateRoom(req RoomCreateReq) (Room, error) {
+	room := Room{
+		UserName: req.Name,
+		Desc:     req.Desc,
+	}
+
 	// 计算一下， 保存到数据库中， 返回
 	room.Expiration = time.Now().Add(time.Hour * 24).Unix()
 	room.StreamName = utils.GenerateUuid()
-	room.Token = room.GetToken()
+	room.Token = GetToken(room.StreamName, room.Expiration)
 	glog.Infoln("CreateRoom", room)
 	// 更新一下数据库
 	return room, nil

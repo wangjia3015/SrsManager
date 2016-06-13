@@ -2,9 +2,11 @@ package manager
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
+
+	"github.com/golang/glog"
 )
 
 const (
@@ -38,55 +40,47 @@ type ConnectInfo struct {
 	PageUrl    string `json:"pageUrl"` // connect 专属
 }
 
-var srs_event_manager SrsEventManager
-
-func SrsEventsHandler(w http.ResponseWriter, req *http.Request) {
-	var ret []byte
+func (s *SrsEventManager) HttpHandler(w http.ResponseWriter, req *http.Request) {
+	glog.Infoln("SrsEventManager")
+	ret := 0
 	var info ConnectInfo
 
 	result, err := ioutil.ReadAll(req.Body)
 
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		ret = []byte("-2")
-		// log error
+		glog.Warningln("read request err", err)
+		ret = -1
 	} else if err = json.Unmarshal(result, &info); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		ret = []byte("-1")
-		// log error
+		ret = -1
+		glog.Warningln("json unmarshal", err)
 	} else {
-		// LOG
-		fmt.Printf("%+v\n", info)
+		glog.Infoln(string(result))
+		glog.Infof("%+v\n", info)
 		switch info.Action {
 		case SRS_CB_ACTION_ON_PUBLISH:
-			err = srs_event_manager.OnPublish(info)
+			err = s.OnPublish(info)
 		}
 		if err != nil {
-			// TODO log
-			ret = []byte("-3")
-		} else {
-			ret = []byte("0")
+			ret = -1
+			glog.Warningln("handler", info.Action, err)
 		}
 	}
-	w.Write(ret)
+	w.Write([]byte(strconv.Itoa(ret)))
 }
 
 type SrsEventManager struct {
-	// checkroom room.CheckRoomlegal // 判断room name是否有效
+	db *DBSync
 }
 
 // 建立链接时
-func (s *SrsEventManager) OnConnect(info ConnectInfo) error { return nil }
-
-// 关闭连接时
-func (s *SrsEventManager) OnClose(info ConnectInfo) error { return nil }
-
-// 主播推送时
-func (s *SrsEventManager) OnPublish(info ConnectInfo) error {
+func (s *SrsEventManager) OnConnect(info ConnectInfo) error {
 	return nil
 }
 
-func (s *SrsEventManager) OnUnpublish(info ConnectInfo) error { return nil }
+// 关闭连接时
+func (s *SrsEventManager) OnClose(info ConnectInfo) error { return nil }
 
 // 用来判断用户是否有权限播放
 func (s *SrsEventManager) OnPlay(info ConnectInfo) error { return nil }
@@ -94,3 +88,14 @@ func (s *SrsEventManager) OnPlay(info ConnectInfo) error { return nil }
 // 当客户端停止播放时。
 // 备注：停止播放可能不会关闭连接，还能再继续播放
 func (s *SrsEventManager) OnStop(info ConnectInfo) error { return nil }
+
+func (s *SrsEventManager) OnUnpublish(info ConnectInfo) error { return nil }
+
+// 主播推送时
+func (s *SrsEventManager) OnPublish(info ConnectInfo) error {
+	glog.Infoln("OnPublish", info)
+	// update db
+	// select * from stream_name
+	// update stream_name
+	return nil
+}

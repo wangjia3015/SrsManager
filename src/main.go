@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"manager"
 	"net/http"
 )
@@ -23,10 +24,12 @@ import (
 func main() {
 	// init
 	flag.Parse()
+	if err := manager.InitRestHandler(); err != nil {
+		fmt.Println("err", err)
+		return
+	}
 
 	// regist handler
-	http.HandleFunc("/event", manager.SrsEventsHandler)
-	//http.HandlerFunc("/room/", nil) // PUT 处理room 创建
-	//http.HandlerFunc("/room/", nil) // DELETE 处理踢人
+	http.HandleFunc("/", manager.RestHandler)
 	http.ListenAndServe(":8085", nil)
 }
