@@ -43,6 +43,7 @@ type ConnectInfo struct {
 	PageUrl    string `json:"pageUrl"` // connect 专属
 }
 
+
 func (s *SrsEventManager) HttpHandler(w http.ResponseWriter, req *http.Request) {
 	glog.Infoln("SrsEventManager")
 	ret := 0
