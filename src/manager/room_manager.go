@@ -63,15 +63,23 @@ type RoomCreateReq struct {
 	Desc string
 }
 
+const (
+	ROOM_CREATE  = iota // 刚刚创建流 未推送
+	ROOM_PUBLISH        // 正在推送中
+	ROOM_CLOSED         // 推送结束
+)
+
 type Room struct {
-	Id              int
-	UserName        string
-	Desc            string
-	StreamName      string
-	Token           string
-	Expiration      int64
-	PublishClientId int
-	PublishHost     string
+	Id              int    //
+	UserName        string //
+	Desc            string //
+	StreamName      string // 随机生成的ID 作为唯一标识
+	Expiration      int64  // 过期时间
+	Status          int    // 判断状态
+	PublishClientId int    // 推送端的ID与PublishHost 一起作为KICKOFF回调的参数
+	PublishHost     string // 边缘节点的IP
+
+	Token string
 }
 
 func GetToken(stream string, expiration int64) string {
