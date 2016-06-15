@@ -19,13 +19,10 @@ func RestHandler(w http.ResponseWriter, req *http.Request) {
 var srs_manager *SrsManager
 
 func InitRestHandler() error {
-	//dbDriver := "mysql"
-	//dbSource := "123"
-	//db, _ := NewDBSync(dbDriver, dbSource)
-	//if err != nil {
-	//	return err
-	//}
-	srs_manager = NewSrsManager(nil)
+	dbDriver := "mysql"
+	dbSource := "test:test@tcp(192.168.88.129:3306)/srs_manager"
+	db := NewDBSync(dbDriver, dbSource, "srs_manager")
+	srs_manager = NewSrsManager(db)
 	return nil
 }
 

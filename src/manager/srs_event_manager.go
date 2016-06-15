@@ -2,6 +2,7 @@ package manager
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -17,9 +18,6 @@ const (
 	SRS_CB_ACTION_ON_PLAY      = "on_play"      // 开始播放
 	SRS_CB_ACTION_ON_STOP      = "on_stop"      // 暂停播放
 )
-
-
-
 
 /*
 {
@@ -42,7 +40,6 @@ type ConnectInfo struct {
 	TcUrl      string `json:"tcUrl"`   // connect 专属
 	PageUrl    string `json:"pageUrl"` // connect 专属
 }
-
 
 func (s *SrsEventManager) HttpHandler(w http.ResponseWriter, req *http.Request) {
 	glog.Infoln("SrsEventManager")
@@ -98,8 +95,20 @@ func (s *SrsEventManager) OnUnpublish(info ConnectInfo) error { return nil }
 // 主播推送时
 func (s *SrsEventManager) OnPublish(info ConnectInfo) error {
 	glog.Infoln("OnPublish", info)
-	// update db
-	// select * from stream_name
-	// update stream_name
+	var room *Room
+	var err error
+	params := map[string]interface{}{"streamname": info.StreamName}
+	if room, err = s.db.SelectRoom(params); err != nil {
+		return err
+	} else if room == nil {
+		return errors.New("stream name not exists " + info.StreamName)
+	}
+	room.PublishClientId = info.ClientID
+	room.PublishHost = info.Ip
+	room.Status = ROOM_PUBLISH
+	// update
+	if err = s.db.UpdateRoom(room); err != nil {
+		return err
+	}
 	return nil
 }
