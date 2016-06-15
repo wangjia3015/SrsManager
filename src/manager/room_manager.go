@@ -25,6 +25,8 @@ func (r *RoomManager) HttpHandler(w http.ResponseWriter, req *http.Request) {
 	var err error
 	var result []byte
 
+	args := GetUrlParams(req.URL.Path, URL_PATH_ROOM)
+
 	if result, err = ioutil.ReadAll(req.Body); err != nil {
 		glog.Warningln("ReadBody err", err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -51,7 +53,16 @@ func (r *RoomManager) HttpHandler(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	case HTTP_DELETE:
-		//err = room_manager.KickoffRoom(value)
+		if len(args) != 1 {
+			w.WriteHeader(http.StatusBadRequest)
+			glog.Warningln("KickoffRoom invalid args count", args)
+			return
+		}
+		if err = r.KickoffRoom(args[0]); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			glog.Warningln("KickoffRoom", err)
+			return
+		}
 	}
 }
 
@@ -107,7 +118,6 @@ func (r *RoomManager) CreateRoom(req RoomCreateReq) (*Room, error) {
 
 	room.StreamName = utils.GenerateUuid()
 	room.Expiration = time.Now().Add(time.Hour * 24).Unix()
-	// 计算一下， 保存到数据库中， 返回
 	room.Token = GetToken(room.StreamName, room.Expiration)
 	room.Status = ROOM_CREATE
 
@@ -119,7 +129,7 @@ func (r *RoomManager) CreateRoom(req RoomCreateReq) (*Room, error) {
 	return room, nil
 }
 
-func (r *RoomManager) tryKickOffClient(host string, clientID int64) error {
+func (r *RoomManager) tryKickOffClient(host string, clientID int) error {
 	var err error
 	var rsp srs_client.RspBase
 	for i := 0; i < 3; i++ {
@@ -152,7 +162,8 @@ func (r *RoomManager) KickoffRoom(streamName string) error {
 		return err
 	}
 
-	if err = r.tryKickOffClient(room.PublishHost, room.Id); err != nil {
+	if err = r.tryKickOffClient(room.PublishHost, room.PublishClientId); err != nil {
+		glog.Warningln("tryKickOffClient", err)
 		return err
 	}
 

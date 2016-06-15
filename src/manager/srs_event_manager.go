@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/golang/glog"
 )
@@ -55,9 +54,7 @@ func (s *SrsEventManager) HttpHandler(w http.ResponseWriter, req *http.Request) 
 	var result []byte
 	var err error
 
-	url := req.URL.Path[len(URL_PATH_EVENT):]
-	url = strings.Trim(url, URL_PATH_SEPARATOR)
-	info.Args = strings.Split(url, URL_PATH_SEPARATOR)
+	info.Args = GetUrlParams(req.URL.Path, URL_PATH_EVENT)
 
 	if result, err = ioutil.ReadAll(req.Body); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
