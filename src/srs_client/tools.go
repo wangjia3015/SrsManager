@@ -106,7 +106,7 @@ type RspBase struct {
 	Code int `json:"code"`
 }
 
-func KickOffClient(host string, clientID int64) (RspBase, error) {
+func KickOffClient(host string, clientID int) (RspBase, error) {
 	url := fmt.Sprintf("http://%s/%s/%d", host, URL_CLIENTS_PATH, clientID)
 	fmt.Println(url)
 	code, body, err := sendRequest(HTTP_DELETE, url)

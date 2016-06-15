@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
-	"strings"
+	"time"
 
 	"github.com/golang/glog"
 )
@@ -55,9 +55,7 @@ func (s *SrsEventManager) HttpHandler(w http.ResponseWriter, req *http.Request) 
 	var result []byte
 	var err error
 
-	url := req.URL.Path[len(URL_PATH_EVENT):]
-	url = strings.Trim(url, URL_PATH_SEPARATOR)
-	info.Args = strings.Split(url, URL_PATH_SEPARATOR)
+	info.Args = GetUrlParams(req.URL.Path, URL_PATH_EVENT)
 
 	if result, err = ioutil.ReadAll(req.Body); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -114,10 +112,14 @@ func (s *SrsEventManager) OnPublish(info ConnectInfo) error {
 	}
 
 	params := map[string]interface{}{"streamname": info.StreamName}
+	now := time.Now().Unix()
 	if room, err = s.db.SelectRoom(params); err != nil {
 		return err
 	} else if room == nil {
 		return errors.New("stream name not exists " + info.StreamName)
+	} else if room.Expiration < now {
+		return errors.New(fmt.Sprintf("stream timeout %d < %d(now) ",
+			room.Expiration, now))
 	} else if room.Status == ROOM_CLOSED {
 		return errors.New("stream already closed " + info.StreamName)
 	}
