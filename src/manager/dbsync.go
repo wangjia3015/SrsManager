@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/golang/glog"
 )
@@ -112,6 +113,25 @@ func (d *DBSync) InsertRoom(room *Room) error {
 	} else {
 		return err
 	}
+}
+
+func (d *DBSync) insert(sql string, args ...interface{}) (lastInsertId int64, err error) {
+	res, err := d.Exec(sql, args...)
+	if err != nil {
+		return -1, fmt.Errorf("sql:%v args:%v insert err:%v", sql, args, err)
+	}
+	if lastInsertId, err = res.LastInsertId(); err != nil {
+		return -1, fmt.Errorf("sql:%v args:%v getLastInsertId err:%v", sql, args, err)
+	}
+
+	return
+}
+
+func (d *DBSync) InsertEdge(e *Edge) error {
+	sql := "insert into edge(`addr`,`role`,`desc`) values (?,?,?)"
+	_, err := d.insert(sql, e.Addr, e.Role, e.Desc)
+
+	return err
 }
 
 func (d *DBSync) UpdateRoom(room *Room) error {
