@@ -3,9 +3,11 @@ package manager
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/golang/glog"
 )
@@ -17,6 +19,8 @@ const (
 	SRS_CB_ACTION_ON_UNPUBLISH = "on_unpublish" // 停止推流
 	SRS_CB_ACTION_ON_PLAY      = "on_play"      // 开始播放
 	SRS_CB_ACTION_ON_STOP      = "on_stop"      // 暂停播放
+
+	URL_PATH_SEPARATOR = "/"
 )
 
 /*
@@ -39,16 +43,23 @@ type ConnectInfo struct {
 	StreamName string `json:"stream"`  // connect | close 不需要
 	TcUrl      string `json:"tcUrl"`   // connect 专属
 	PageUrl    string `json:"pageUrl"` // connect 专属
+	//teApiHost string
+
+	Args []string
 }
 
 func (s *SrsEventManager) HttpHandler(w http.ResponseWriter, req *http.Request) {
-	glog.Infoln("SrsEventManager")
+	glog.Infoln("SrsEventManager", req.URL.RawQuery)
 	ret := 0
 	var info ConnectInfo
+	var result []byte
+	var err error
 
-	result, err := ioutil.ReadAll(req.Body)
+	url := req.URL.Path[len(URL_PATH_EVENT):]
+	url = strings.Trim(url, URL_PATH_SEPARATOR)
+	info.Args = strings.Split(url, URL_PATH_SEPARATOR)
 
-	if err != nil {
+	if result, err = ioutil.ReadAll(req.Body); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		glog.Warningln("read request err", err)
 		ret = -1
@@ -97,6 +108,11 @@ func (s *SrsEventManager) OnPublish(info ConnectInfo) error {
 	glog.Infoln("OnPublish", info)
 	var room *Room
 	var err error
+
+	if len(info.Args) != 2 {
+		return errors.New(fmt.Sprintln("param not match", info.Args))
+	}
+
 	params := map[string]interface{}{"streamname": info.StreamName}
 	if room, err = s.db.SelectRoom(params); err != nil {
 		return err
@@ -107,8 +123,9 @@ func (s *SrsEventManager) OnPublish(info ConnectInfo) error {
 	}
 
 	room.PublishClientId = info.ClientID
-	room.PublishHost = info.Ip // FIXME 此处IP是远端IP 并不是edge server的IP 需要远端edge server的 IP:PORT 来处理
 	room.Status = ROOM_PUBLISH
+
+	room.PublishHost = fmt.Sprintf("%s:%s", info.Args[0], info.Args[1])
 	// update
 	if err = s.db.UpdateRoom(room); err != nil {
 		return err
