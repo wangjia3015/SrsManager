@@ -37,7 +37,7 @@ func (d *DBSync) open() (*sql.DB, error) {
 }
 
 func (d DBSync) useDB(db *sql.DB) error {
-	if _, err := db.Exec("use '" + d.dbName + "'"); err != nil {
+	if _, err := db.Exec("use `" + d.dbName + "`"); err != nil {
 		return err
 	}
 	return nil
@@ -93,7 +93,7 @@ func (d *DBSync) Exec(sqlstr string, params ...interface{}) (sql.Result, error) 
 }
 
 func (d *DBSync) InsertRoom(room *Room) error {
-	sql := "insert into room('user', 'desc', streamname, expiration, status, createtime, lastupdatetime) values(?, ?, ? , ?, ?, ?, ?)"
+	sql := "insert into room(`user`, `desc`, streamname, expiration, status, createtime, lastupdatetime) values(?, ?, ? , ?, ?, ?, ?)"
 
 	room.CreateTime = time.Now().Unix()
 	room.LastUpdateTime = room.CreateTime
@@ -115,7 +115,7 @@ func (d *DBSync) InsertRoom(room *Room) error {
 }
 
 func (d *DBSync) UpdateRoom(room *Room) error {
-	sql := "update room set 'desc'= ?, 'streamname'=? , 'expiration' = ?, status = ?, 'publishid' = ?,'publishhost' = ?, lastupdatetime=? where id = ?"
+	sql := "update room set `desc`= ?, `streamname`=? , `expiration` = ?, status = ?, `publishid` = ?,`publishhost` = ?, lastupdatetime=? where id = ?"
 	room.LastUpdateTime = time.Now().Unix()
 	if res, err := d.Exec(sql,
 		room.Desc,
@@ -143,11 +143,11 @@ func (d *DBSync) SelectRoom(params map[string]interface{}) (*Room, error) {
 	values := []interface{}{}
 
 	for k, v := range params {
-		keys = append(keys, " '"+k+"' = ? ")
+		keys = append(keys, " `"+k+"` = ? ")
 		values = append(values, v)
 	}
 
-	sqlstr := `select 'id', 'user', 'desc', 'streamname', 'expiration', 'status', 'publishid', 'publishhost', 'createtime', 'lastupdatetime' from room where ` + strings.Join(keys, " and ")
+	sqlstr := "select `id`, `user`, `desc`, `streamname`, `expiration`, `status`, `publishid`, `publishhost`, `createtime`, `lastupdatetime` from room where " + strings.Join(keys, " and ")
 
 	var db *sql.DB
 	var err error

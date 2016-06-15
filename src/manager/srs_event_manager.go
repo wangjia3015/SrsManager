@@ -102,9 +102,12 @@ func (s *SrsEventManager) OnPublish(info ConnectInfo) error {
 		return err
 	} else if room == nil {
 		return errors.New("stream name not exists " + info.StreamName)
+	} else if room.Status == ROOM_CLOSED {
+		return errors.New("stream already closed " + info.StreamName)
 	}
+
 	room.PublishClientId = info.ClientID
-	room.PublishHost = info.Ip
+	room.PublishHost = info.Ip // FIXME 此处IP是远端IP 并不是edge server的IP 需要远端edge server的 IP:PORT 来处理
 	room.Status = ROOM_PUBLISH
 	// update
 	if err = s.db.UpdateRoom(room); err != nil {
