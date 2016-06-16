@@ -1,10 +1,8 @@
 package main
 
 import (
-	"flag"
 	"fmt"
-	"manager"
-	"net/http"
+	"srs_client"
 )
 
 /*
@@ -22,14 +20,13 @@ import (
 */
 
 func main() {
-	// init
+	init
 	flag.Parse()
 	if err := manager.InitRestHandler(); err != nil {
 		fmt.Println("err", err)
 		return
 	}
 
-	// regist handler
 	http.HandleFunc("/", manager.RestHandler)
 	http.ListenAndServe(":8085", nil)
 }

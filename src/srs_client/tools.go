@@ -2,14 +2,16 @@ package srs_client
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 )
 
 const (
-	URL_STREAMS_PATH = "api/v1/streams"
-	URL_CLIENTS_PATH = "api/v1/clients"
+	URL_STREAMS_PATH   = "api/v1/streams"
+	URL_CLIENTS_PATH   = "api/v1/clients"
+	URL_SUMMARIES_PATH = "api/v1/summaries"
 
 	HTTP_GET    = "GET"
 	HTTP_PUT    = "PUT"
@@ -137,3 +139,121 @@ func KickOffClient(host string, clientID int) (RspBase, error) {
 //func GetSystemProcStats(host string) {
 //
 //}
+
+/*
+{
+	"code":0,
+	"data": {
+		"ok":true,
+		"now_ms":1465983114741,
+		"self":{
+			"version":"2.0.209",
+			"pid":9352,
+			"ppid":1,
+			"argv":"objs/srs -c conf/srs.conf",
+			"cwd":"/data/working/srs/trunk",
+			"mem_kbyte":2616,
+			"mem_percent":0.00259196,
+			"cpu_percent":0,
+			"srs_uptime":7796.7
+		},
+		"system": {
+			"cpu_percent":0,
+			"disk_read_KBps":0,
+			"disk_write_KBps":0,
+			"disk_busy_percent":0,
+			"mem_ram_kbyte":1009276,
+			"mem_ram_percent":0.305407,
+			"mem_swap_kbyte":2097148,
+			"mem_swap_percent":0,
+			"cpus":1,
+			"cpus_online":1,
+			"uptime":31036.5,
+			"ilde_time":30447.9,
+			"load_1m":0,
+			"load_5m":0.01,
+			"load_15m":0.05,
+			"net_sample_time":1465983114741,
+			"net_recv_bytes":0,
+			"net_send_bytes":0,
+			"net_recvi_bytes":23833934,
+			"net_sendi_bytes":23833934,
+			"srs_sample_time":1465983114741,
+			"srs_recv_bytes":27187597,
+			"srs_send_bytes":37728,
+			"conn_sys":23,
+			"conn_sys_et":4,
+			"conn_sys_tw":2,
+			"conn_sys_udp":4,
+			"conn_srs":1
+		}
+	}
+}
+*/
+
+type SelfInfo struct {
+	Version    string  `json:"version"`
+	PID        int64   `json:"pid"`
+	PPID       int64   `json:"ppid"`
+	Argv       string  `json:"argv"`
+	Cwd        string  `json:"cwd"`
+	Mem        int64   `json:"mem_kbyte"`
+	MemPercent float64 `json:"mem_percent"`
+	CPUPercent float64 `json:"cpu_percent"`
+	SrsUptime  float64 `json:"srs_uptime"`
+}
+
+type SystemInfo struct {
+	CPUPercent      float64 `json:"cpu_percent"`
+	DiskReadKBps    int64   `json:"disk_read_KBps"`
+	DiskWriteKBps   int64   `json:"disk_write_KBps"`
+	DiskBusyPercent float64 `json:"disk_busy_percent"`
+	MemRam          int64   `json:"mem_ram_kbyte"`
+	MemRamPercent   float64 `json:"mem_ram_percent"`
+	MemSwap         int64   `json:"mem_swap_kbyte"`
+	MemSwapPercent  float64 `json:"mem_swap_percent"`
+	CPUNum          int     `json:"cpus"`
+	CPUOnline       int     `json:"cpus_online"`
+	Uptime          float64 `json:"uptime"`
+	IldeTime        float64 `json:"ilde_time"`
+	Load1m          float64 `json:"load_1m"`
+	Load5m          float64 `json:"load_5m"`
+	Load15m         float64 `json:"load_15m"`
+	NetSampleTime   int64   `json:"net_sample_time"`
+	NetRecv         int64   `json:"net_recv_bytes"`
+	NetSend         int64   `json:"net_send_bytes"`
+	NetRecvi        int64   `json:"net_recvi_bytes"`
+	NetSendi        int64   `json:"net_sendi_bytes"`
+	SrsSampleTime   int64   `json:"srs_sample_time"`
+	SrsRecv         int64   `json:"srs_recv_bytes"`
+	SrsSend         int64   `json:"srs_send_bytes"`
+	ConnSys         int     `json:"conn_sys"`
+	ConnSysET       int     `json:"conn_sys_et"`
+	COnnSysTW       int     `json:"conn_sys_tw"`
+	ConnSysUdp      int     `json:"conn_sys_udp"`
+	ConnSrs         int     `json:"conn_srs"`
+}
+
+type SummaryData struct {
+	Self SelfInfo   `json:"self"`
+	Sys  SystemInfo `json:"system"`
+}
+
+type SummaryInfo struct {
+	RspBase
+	Data SummaryData `json:"data"`
+}
+
+func GetSummaries(host string) (*SummaryInfo, error) {
+	url := fmt.Sprintf("http://%s/%s", host, URL_SUMMARIES_PATH)
+	code, body, err := sendRequest(HTTP_GET, url)
+	var info SummaryInfo
+	if err != nil {
+		return nil, err
+	} else if code != http.StatusOK {
+		return nil, errors.New(fmt.Sprintf("http request status %d", code))
+	} else if err = json.Unmarshal(body, &info); err != nil {
+		return nil, err
+	}
+	return &info, err
+}
