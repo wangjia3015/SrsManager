@@ -7,16 +7,23 @@ import (
 	"time"
 
 	"fmt"
+
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/golang/glog"
 )
 
+const (
+	//	TABLE_NAME_ROOM       = "room"
+	TABLE_NAME_SRS_SERVER = "srs_server"
+)
+
 type DBSync struct {
 	//db    *sql.DB
-	mutex        sync.Mutex
 	dbDriver     string
 	dbDataSource string
 	dbName       string
+
+	mutex sync.Mutex
 }
 
 func NewDBSync(dbDriver, dbDataSource, dbName string) *DBSync {
@@ -30,67 +37,21 @@ func NewDBSync(dbDriver, dbDataSource, dbName string) *DBSync {
 func (d *DBSync) open() (*sql.DB, error) {
 	if db, err := sql.Open(d.dbDriver, d.dbDataSource); err != nil {
 		return nil, err
-	} else if err = d.useDB(db); err != nil {
-		return nil, err
 	} else {
 		return db, err
 	}
 }
 
-func (d DBSync) useDB(db *sql.DB) error {
-	if _, err := db.Exec("use `" + d.dbName + "`"); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (d *DBSync) CreateTables() error {
-	db, err := d.open()
-	defer db.Close()
-	if err != nil {
-		return err
-	}
-	if err = d.useDB(db); err != nil {
-		return err
-	}
-
-	sqls := []string{
-		`CREATE TABLE 'room' (
-			'id' bigint(20) NOT NULL AUTO_INCREMENT, 
-			'user' varchar(255) NOT NULL, 
-			'desc' varchar(255) NOT NULL, 
-			'streamname' varchar(255) NOT NULL, 
-			'expiration' int(11) NOT NULL, 
-			'status' int NOT NULL, 
-			'publishid'  int, 
-			'publishhost' varchar(20) default NULL, 
-			'lastupdatetime' int(11) NOT NULL, 
-			'createtime' int(11) NOT NULL, 
-			PRIMARY KEY ('id'), 
-			UNIQUE KEY 'name' ('streamname') ) 
-			ENGINE=InnoDB DEFAULT CHARSET=utf8 `,
-	}
-	for _, sql := range sqls {
-		if _, err = db.Exec(sql); err != nil {
-			glog.Warningln("sql err", err, sql)
-			return err
-		}
-	}
-	return nil
-}
-
-func (d *DBSync) Exec(sqlstr string, params ...interface{}) (sql.Result, error) {
+func (d *DBSync) exec(sqlstr string, params ...interface{}) (sql.Result, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 	var db *sql.DB
 	var err error
 	if db, err = d.open(); err != nil {
 		return nil, err
 	}
 	defer db.Close()
-	stmt, err := db.Prepare(sqlstr)
-	if err != nil {
-		return nil, err
-	}
-	return stmt.Exec(params...)
+	return db.Exec(sqlstr, params...)
 }
 
 func (d *DBSync) InsertRoom(room *Room) error {
@@ -98,7 +59,11 @@ func (d *DBSync) InsertRoom(room *Room) error {
 
 	room.CreateTime = time.Now().Unix()
 	room.LastUpdateTime = room.CreateTime
-	if res, err := d.Exec(sql, room.UserName,
+
+	var id int64
+	var err error
+	if id, err = d.insert(sql,
+		room.UserName,
 		room.Desc,
 		room.StreamName,
 		room.Expiration,
@@ -106,17 +71,13 @@ func (d *DBSync) InsertRoom(room *Room) error {
 		room.CreateTime,
 		room.LastUpdateTime,
 	); err == nil {
-		if room.Id, err = res.LastInsertId(); err != nil {
-			glog.Warningln("res.LastInsertId err", err)
-		}
-		return err
-	} else {
-		return err
+		room.Id = id
 	}
+	return err
 }
 
 func (d *DBSync) insert(sql string, args ...interface{}) (lastInsertId int64, err error) {
-	res, err := d.Exec(sql, args...)
+	res, err := d.exec(sql, args...)
 	if err != nil {
 		return -1, fmt.Errorf("sql:%v args:%v insert err:%v", sql, args, err)
 	}
@@ -137,7 +98,7 @@ func (d *DBSync) InsertEdge(e *Edge) error {
 func (d *DBSync) UpdateRoom(room *Room) error {
 	sql := "update room set `desc`= ?, `streamname`=? , `expiration` = ?, status = ?, `publishid` = ?,`publishhost` = ?, lastupdatetime=? where id = ?"
 	room.LastUpdateTime = time.Now().Unix()
-	if res, err := d.Exec(sql,
+	if res, err := d.exec(sql,
 		room.Desc,
 		room.StreamName,
 		room.Expiration,
@@ -169,6 +130,8 @@ func (d *DBSync) SelectRoom(params map[string]interface{}) (*Room, error) {
 
 	sqlstr := "select `id`, `user`, `desc`, `streamname`, `expiration`, `status`, `publishid`, `publishhost`, `createtime`, `lastupdatetime` from room where " + strings.Join(keys, " and ")
 
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 	var db *sql.DB
 	var err error
 	if db, err = d.open(); err != nil {
@@ -194,4 +157,44 @@ func (d *DBSync) SelectRoom(params map[string]interface{}) (*Room, error) {
 	}
 
 	return &room, nil
+}
+
+func (d *DBSync) InsertSrsServer(svr *SrsServer) error {
+	sqlstr := "insert into " + TABLE_NAME_SRS_SERVER + "(`host`, `type`, `status`) values(?, ?, ?)"
+	var err error
+	svr.ID, err = d.insert(sqlstr, svr.Host, svr.ServerType, svr.Status)
+	return err
+}
+
+func (d *DBSync) LoadSrsServers() ([]*SrsServer, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	var db *sql.DB
+	var err error
+	if db, err = d.open(); err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	sqlstr := "select `id`, `host`, `type`, `status` from " + TABLE_NAME_SRS_SERVER
+
+	var rows *sql.Rows
+	if rows, err = db.Query(sqlstr); err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var servers []*SrsServer
+	for rows.Next() {
+		var srs SrsServer
+		if err = rows.Scan(&srs.ID,
+			&srs.Host,
+			&srs.ServerType,
+			&srs.Status); err != nil {
+			return nil, err
+		}
+		servers = append(servers, &srs)
+	}
+	return servers, nil
 }

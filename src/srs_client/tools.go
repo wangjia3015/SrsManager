@@ -65,8 +65,8 @@ streams: [
 */
 
 type KbpsInfo struct {
-	Recv30s int `json:recv_30s`
-	Send30s int `json:send_30s`
+	Recv30s int `json:"recv_30s"`
+	Send30s int `json:"send_30s"`
 }
 
 type Publisher struct {

@@ -8,8 +8,10 @@ import (
 )
 
 const (
-	URL_PATH_EVENT = "/event"
-	URL_PATH_ROOM  = "/room"
+	URL_PATH_EVENT     = "/event"
+	URL_PATH_ROOM      = "/room"
+	URL_PATH_SUMMARIES = "/summary"
+	URL_PATH_STREAMS   = "/stream"
 )
 
 func RestHandler(w http.ResponseWriter, req *http.Request) {
@@ -22,24 +24,46 @@ func InitRestHandler() error {
 	dbDriver := "mysql"
 	dbSource := "test:test@tcp(192.168.88.129:3306)/srs_manager"
 	db := NewDBSync(dbDriver, dbSource, "srs_manager")
-	srs_manager = NewSrsManager(db)
-	return nil
+	var err error
+	if srs_manager, err = NewSrsManager(db); err != nil {
+		glog.Errorln("NewSrsManager err", err)
+		//} else {
+		//	go func() {
+		//		for {
+		//			m := srs_manager.srs_server_manager.GetSrsServer(0)
+		//			b, err := json.Marshal(m)
+		//			fmt.Println(string(b), err)
+		//			m = srs_manager.srs_server_manager.GetSrsServer(1)
+		//			b, err = json.Marshal(m)
+		//			fmt.Println(string(b), err)
+		//			time.Sleep(10 * time.Second)
+		//		}
+		//	}()
+	}
+
+	return err
 }
 
 type SrsManager struct {
-	db            *DBSync
-	event_manager *SrsEventManager
-	room_manager  *RoomManager
+	db                 *DBSync
+	event_manager      *SrsEventManager
+	room_manager       *RoomManager
+	srs_server_manager *SrsServerManager
 }
 
-func NewSrsManager(dbSync *DBSync) *SrsManager {
+func NewSrsManager(dbSync *DBSync) (*SrsManager, error) {
 	event := &SrsEventManager{db: dbSync}
 	room := &RoomManager{db: dbSync}
-	return &SrsManager{
-		db:            dbSync,
-		event_manager: event,
-		room_manager:  room,
+	server := NewSrsServermanager(dbSync)
+	if err := server.LoadServers(); err != nil {
+		return nil, err
 	}
+	return &SrsManager{
+		db:                 dbSync,
+		event_manager:      event,
+		room_manager:       room,
+		srs_server_manager: server,
+	}, nil
 }
 
 func (s *SrsManager) HttpHandler(w http.ResponseWriter, r *http.Request) {
@@ -49,5 +73,8 @@ func (s *SrsManager) HttpHandler(w http.ResponseWriter, r *http.Request) {
 		s.event_manager.HttpHandler(w, r)
 	} else if strings.HasPrefix(url, URL_PATH_ROOM) {
 		s.room_manager.HttpHandler(w, r)
+	} else if strings.HasPrefix(url, URL_PATH_SUMMARIES) ||
+		strings.HasPrefix(url, URL_PATH_STREAMS) {
+		s.srs_server_manager.HttpHandler(w, r)
 	}
 }
