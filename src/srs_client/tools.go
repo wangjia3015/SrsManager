@@ -39,30 +39,7 @@ func sendRequest(method, url string) (int, []byte, error) {
 	return code, body, err
 }
 
-/*
-streams: [
-{
-	id: 8186,
-	name: "kanwo",
-	vhost: 8185,
-	app: "live",
-	live_ms: 1465296710455,
-	clients: 2,
-	send_bytes: 120168054,
-	recv_bytes: 118344183,
-	kbps: {
-		recv_30s: 96,
-		send_30s: 99
-	},
-	publish: {
-		active: true,
-		cid: 129
-	},
-	video: null,
-	audio: null
-}
-]
-*/
+
 
 type KbpsInfo struct {
 	Recv30s int `json:"recv_30s"`
@@ -119,77 +96,6 @@ func KickOffClient(host string, clientID int) (RspBase, error) {
 	return rsp, err
 }
 
-/*
-	ok: true,
-	sample_time: 1465369557159,
-	percent: 0.00334448,
-	user: 9796,
-	nice: 3,
-	sys: 7234,
-	idle: 1751474,
-	iowait: 201,
-	irq: 0,
-	softirq: 1619,
-	steal: 0,
-	guest: 0
-*/
-//type RspSystemProcStats struct {
-//}
-//
-//func GetSystemProcStats(host string) {
-//
-//}
-
-/*
-{
-	"code":0,
-	"data": {
-		"ok":true,
-		"now_ms":1465983114741,
-		"self":{
-			"version":"2.0.209",
-			"pid":9352,
-			"ppid":1,
-			"argv":"objs/srs -c conf/srs.conf",
-			"cwd":"/data/working/srs/trunk",
-			"mem_kbyte":2616,
-			"mem_percent":0.00259196,
-			"cpu_percent":0,
-			"srs_uptime":7796.7
-		},
-		"system": {
-			"cpu_percent":0,
-			"disk_read_KBps":0,
-			"disk_write_KBps":0,
-			"disk_busy_percent":0,
-			"mem_ram_kbyte":1009276,
-			"mem_ram_percent":0.305407,
-			"mem_swap_kbyte":2097148,
-			"mem_swap_percent":0,
-			"cpus":1,
-			"cpus_online":1,
-			"uptime":31036.5,
-			"ilde_time":30447.9,
-			"load_1m":0,
-			"load_5m":0.01,
-			"load_15m":0.05,
-			"net_sample_time":1465983114741,
-			"net_recv_bytes":0,
-			"net_send_bytes":0,
-			"net_recvi_bytes":23833934,
-			"net_sendi_bytes":23833934,
-			"srs_sample_time":1465983114741,
-			"srs_recv_bytes":27187597,
-			"srs_send_bytes":37728,
-			"conn_sys":23,
-			"conn_sys_et":4,
-			"conn_sys_tw":2,
-			"conn_sys_udp":4,
-			"conn_srs":1
-		}
-	}
-}
-*/
 
 type SelfInfo struct {
 	Version    string  `json:"version"`

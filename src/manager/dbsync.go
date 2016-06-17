@@ -88,8 +88,6 @@ func (d *DBSync) insert(sql string, args ...interface{}) (lastInsertId int64, er
 	return
 }
 
-
-
 func (d *DBSync) UpdateRoom(room *Room) error {
 	sql := "update room set `desc`= ?, `streamname`=? , `expiration` = ?, status = ?, `publishid` = ?,`publishhost` = ?, lastupdatetime=? where id = ?"
 	room.LastUpdateTime = time.Now().Unix()
@@ -153,7 +151,6 @@ func (d *DBSync) SelectRoom(params map[string]interface{}) (*Room, error) {
 
 	return &room, nil
 }
-
 
 func (d *DBSync) LoadSrsServers() ([]*SrsServer, error) {
 	d.mutex.Lock()

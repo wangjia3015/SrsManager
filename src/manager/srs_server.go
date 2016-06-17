@@ -19,11 +19,12 @@ const (
 )
 
 type SrsServer struct {
-	Host       string
-	ServerType int
-	Status     int
-	Desc       string
-	Loc        utils.Loc
+	ID                int64
+	Host              string
+	ServerType        int
+	Status            int
+	Desc              string
+	Loc               utils.Loc
 	Streams           []srs_client.Stream
 	Summary           *srs_client.SummaryData
 	StreamUpdateTime  int64
