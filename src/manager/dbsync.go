@@ -88,12 +88,7 @@ func (d *DBSync) insert(sql string, args ...interface{}) (lastInsertId int64, er
 	return
 }
 
-func (d *DBSync) InsertEdge(e *Edge) error {
-	sql := "insert into edge(`addr`,`role`,`desc`) values (?,?,?)"
-	_, err := d.insert(sql, e.Addr, e.Role, e.Desc)
 
-	return err
-}
 
 func (d *DBSync) UpdateRoom(room *Room) error {
 	sql := "update room set `desc`= ?, `streamname`=? , `expiration` = ?, status = ?, `publishid` = ?,`publishhost` = ?, lastupdatetime=? where id = ?"
@@ -159,12 +154,6 @@ func (d *DBSync) SelectRoom(params map[string]interface{}) (*Room, error) {
 	return &room, nil
 }
 
-func (d *DBSync) InsertSrsServer(svr *SrsServer) error {
-	sqlstr := "insert into " + TABLE_NAME_SRS_SERVER + "(`host`, `type`, `status`) values(?, ?, ?)"
-	var err error
-	svr.ID, err = d.insert(sqlstr, svr.Host, svr.ServerType, svr.Status)
-	return err
-}
 
 func (d *DBSync) LoadSrsServers() ([]*SrsServer, error) {
 	d.mutex.Lock()
