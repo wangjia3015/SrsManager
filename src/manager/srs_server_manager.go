@@ -3,7 +3,6 @@ package manager
 import (
 	"encoding/json"
 	"net/http"
-	"srs_client"
 	"strings"
 
 	"github.com/golang/glog"
@@ -53,12 +52,6 @@ func (s *SrsServerManager) HttpHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type StreamInfo struct {
-	Host       string
-	UpdateTime int64
-	Streams    []srs_client.Stream
-}
-
 // /stream/edge
 func (s *SrsServerManager) streamHandler(w http.ResponseWriter, r *http.Request) {
 	args := GetUrlParams(r.URL.Path, URL_PATH_STREAMS)
@@ -72,8 +65,7 @@ func (s *SrsServerManager) streamHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	//var streams []srs_client.Stream
-	streams := make(map[string][]srs_client.Stream)
+	streams := make(map[string]*StreamInfo)
 	servers := s.GetSrsServer(svrtype)
 	for h, svr := range servers {
 		streams[h] = svr.Streams
@@ -99,7 +91,7 @@ func (s *SrsServerManager) summaryHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	var servers map[string]SrsServer
-	infos := make(map[string]*srs_client.SummaryData)
+	infos := make(map[string]*SummaryInfo)
 	if args[0] == "edge" {
 		servers = s.GetSrsServer(SERVER_TYPE_EDGE)
 	} else if args[0] == "source" {
