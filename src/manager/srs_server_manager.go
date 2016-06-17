@@ -3,23 +3,33 @@ package manager
 import (
 	"encoding/json"
 	"net/http"
-	"srs_client"
 	"strings"
 
 	"github.com/golang/glog"
 )
 
+const (
+	SERVER_TYPE_EDGE_UP = iota
+	SERVER_TYPE_EDGE_DOWN
+	SERVER_TYPE_ORIGIN
+
+	STR_TYPE_EDGE_UP   = "edgeup"
+	STR_TYPE_EDGE_DOWN = "edgedown"
+	STR_TYPE_ORIGIN    = "origin"
+)
+
 type SrsServerManager struct {
-	EdgeServers   map[string]*SrsServer
-	SourceServers map[string]*SrsServer
-	db            *DBSync
+	EdgeUpServers   map[string]*SrsServer
+	EdgeDownServers map[string]*SrsServer
+	OriginServers   map[string]*SrsServer
+	db              *DBSync
 }
 
 func NewSrsServermanager(db *DBSync) *SrsServerManager {
 	return &SrsServerManager{
 		db:            db,
-		EdgeServers:   make(map[string]*SrsServer),
-		SourceServers: make(map[string]*SrsServer),
+		EdgeUpServers: make(map[string]*SrsServer),
+		OriginServers: make(map[string]*SrsServer),
 	}
 }
 
@@ -31,11 +41,14 @@ func (s *SrsServerManager) LoadServers() error {
 	}
 
 	for _, svr := range servers {
-		if svr.ServerType == SERVER_TYPE_EDGE {
-			s.EdgeServers[svr.Host] = svr
+		if svr.ServerType == SERVER_TYPE_EDGE_UP {
+			s.EdgeUpServers[svr.Host] = svr
 			go svr.UpdateStatusLoop()
-		} else if svr.ServerType == SERVER_TYPE_SOURCE {
-			s.SourceServers[svr.Host] = svr
+		} else if svr.ServerType == SERVER_TYPE_ORIGIN {
+			s.OriginServers[svr.Host] = svr
+			go svr.UpdateStatusLoop()
+		} else if svr.ServerType == SERVER_TYPE_EDGE_DOWN {
+			s.OriginServers[svr.Host] = svr
 			go svr.UpdateStatusLoop()
 		} else {
 			glog.Warningln("Server type undefeine", svr)
@@ -53,27 +66,22 @@ func (s *SrsServerManager) HttpHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type StreamInfo struct {
-	Host       string
-	UpdateTime int64
-	Streams    []srs_client.Stream
-}
-
 // /stream/edge
 func (s *SrsServerManager) streamHandler(w http.ResponseWriter, r *http.Request) {
 	args := GetUrlParams(r.URL.Path, URL_PATH_STREAMS)
 	var svrtype int
-	if len(args) == 0 || args[0] == "source" {
-		svrtype = SERVER_TYPE_SOURCE
-	} else if args[0] == "edge" {
-		svrtype = SERVER_TYPE_EDGE
+	if len(args) == 0 || args[0] == STR_TYPE_ORIGIN {
+		svrtype = SERVER_TYPE_ORIGIN
+	} else if args[0] == STR_TYPE_EDGE_UP {
+		svrtype = SERVER_TYPE_EDGE_UP
+	} else if args[0] == STR_TYPE_EDGE_DOWN {
+		svrtype = SERVER_TYPE_EDGE_DOWN
 	} else {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	//var streams []srs_client.Stream
-	streams := make(map[string][]srs_client.Stream)
+	streams := make(map[string]*StreamInfo)
 	servers := s.GetSrsServer(svrtype)
 	for h, svr := range servers {
 		streams[h] = svr.Streams
@@ -99,11 +107,13 @@ func (s *SrsServerManager) summaryHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	var servers map[string]SrsServer
-	infos := make(map[string]*srs_client.SummaryData)
-	if args[0] == "edge" {
-		servers = s.GetSrsServer(SERVER_TYPE_EDGE)
-	} else if args[0] == "source" {
-		servers = s.GetSrsServer(SERVER_TYPE_SOURCE)
+	infos := make(map[string]*SummaryInfo)
+	if args[0] == STR_TYPE_EDGE_UP {
+		servers = s.GetSrsServer(SERVER_TYPE_EDGE_UP)
+	} else if args[0] == STR_TYPE_ORIGIN {
+		servers = s.GetSrsServer(SERVER_TYPE_ORIGIN)
+	} else if args[0] == STR_TYPE_EDGE_DOWN {
+		servers = s.GetSrsServer(SERVER_TYPE_EDGE_DOWN)
 	}
 
 	for h, svr := range servers {
@@ -125,10 +135,12 @@ func (s *SrsServerManager) GetSrsServer(serverType int) map[string]SrsServer {
 	var summaries map[string]SrsServer
 
 	switch serverType {
-	case SERVER_TYPE_EDGE:
-		servers = s.EdgeServers
-	case SERVER_TYPE_SOURCE:
-		servers = s.SourceServers
+	case SERVER_TYPE_EDGE_UP:
+		servers = s.EdgeUpServers
+	case SERVER_TYPE_ORIGIN:
+		servers = s.OriginServers
+	case SERVER_TYPE_EDGE_DOWN:
+		servers = s.EdgeDownServers
 	}
 
 	// copy

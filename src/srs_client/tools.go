@@ -141,19 +141,20 @@ type SystemInfo struct {
 }
 
 type SummaryData struct {
-	Self SelfInfo   `json:"self"`
-	Sys  SystemInfo `json:"system"`
+	Self       SelfInfo   `json:"self"`
+	Sys        SystemInfo `json:"system"`
+	UpdateTime int64
 }
 
-type SummaryInfo struct {
+type RspSummary struct {
 	RspBase
 	Data SummaryData `json:"data"`
 }
 
-func GetSummaries(host string) (*SummaryInfo, error) {
+func GetSummaries(host string) (*RspSummary, error) {
 	url := fmt.Sprintf("http://%s/%s", host, URL_SUMMARIES_PATH)
 	code, body, err := sendRequest(HTTP_GET, url)
-	var info SummaryInfo
+	var info RspSummary
 	if err != nil {
 		return nil, err
 	} else if code != http.StatusOK {
