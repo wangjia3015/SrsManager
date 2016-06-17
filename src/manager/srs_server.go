@@ -11,9 +11,6 @@ import (
 )
 
 const (
-	SERVER_TYPE_EDGE   = 0
-	SERVER_TYPE_SOURCE = 1
-
 	UPDATE_STATUS_INTERVAL = 10 * time.Second
 )
 
