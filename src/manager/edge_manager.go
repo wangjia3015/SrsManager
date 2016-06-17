@@ -15,18 +15,18 @@ var (
 
 type EdgeManager struct {
 	db      *DBSync
-	Servers map[int32]*Edge
+	Servers map[int64]*Edge
 	sync.RWMutex
 }
 
 func NewEdgeManager() (em *EdgeManager) {
 	em = new(EdgeManager)
-	em.Servers = make(map[int32]*Edge, 0)
+	em.Servers = make(map[int64]*Edge, 0)
 
 	return
 }
 
-func inetAton(ip net.IP) int64 {
+func IpToInt64(ip net.IP) int64 {
 	bits := strings.Split(ip.String(), ".")
 	b0, _ := strconv.Atoi(bits[0])
 	b1, _ := strconv.Atoi(bits[1])
@@ -41,7 +41,7 @@ func inetAton(ip net.IP) int64 {
 	return sum
 }
 
-func inetNtoa(ipnr int64) net.IP {
+func Int64ToIp(ipnr int64) net.IP {
 	var bytes [4]byte
 	bytes[0] = byte(ipnr & 0xFF)
 	bytes[1] = byte((ipnr >> 8) & 0xFF)
@@ -53,7 +53,7 @@ func inetNtoa(ipnr int64) net.IP {
 func (em *EdgeManager) put(e *Edge) {
 	em.Lock()
 	defer em.Unlock()
-	em.Servers[inetAton(net.ParseIP(e.Addr))] = e
+	em.Servers[IpToInt64(net.ParseIP(e.Addr))] = e
 }
 
 func (em *EdgeManager) getAndPutEdgeServer(addr string) (e *Edge, err error) {
@@ -64,7 +64,7 @@ func (em *EdgeManager) getAndPutEdgeServer(addr string) (e *Edge, err error) {
 		return nil, ErrInvalidEdgeServerAddr
 	}
 	em.RLock()
-	e, ok = em.Servers[inetNtoa(net.ParseIP(addr))]
+	e, ok = em.Servers[IpToInt64(net.ParseIP(addr))]
 	em.RUnlock()
 	if !ok {
 
