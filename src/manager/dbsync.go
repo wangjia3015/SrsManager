@@ -163,7 +163,7 @@ func (d *DBSync) LoadSrsServers() ([]*SrsServer, error) {
 	}
 	defer db.Close()
 
-	sqlstr := "select `id`, `host`, `type`, `status` from " + TABLE_NAME_SRS_SERVER
+	sqlstr := "select `id`, `host`, `desc`, `type`, `status` from " + TABLE_NAME_SRS_SERVER
 
 	var rows *sql.Rows
 	if rows, err = db.Query(sqlstr); err != nil {
@@ -183,4 +183,11 @@ func (d *DBSync) LoadSrsServers() ([]*SrsServer, error) {
 		servers = append(servers, &srs)
 	}
 	return servers, nil
+}
+
+func (d *DBSync) InsertServer(svr *SrsServer) error {
+	sqlstr := "insert into " + TABLE_NAME_SRS_SERVER + "(`host`, `desc`, `type`, `status`) values(?, ?, ?, ?)"
+	var err error
+	svr.ID, err = d.insert(sqlstr, svr.Host, svr.Desc, svr.ServerType, svr.Status)
+	return err
 }

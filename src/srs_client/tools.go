@@ -27,8 +27,6 @@ func sendRequest(method, url string) (int, []byte, error) {
 	if err != nil {
 		return code, body, err
 	}
-
-	//req.Header.Add("Authorization", AuthString)
 	rsp, err := client.Do(req)
 	if err != nil {
 		return code, body, err
