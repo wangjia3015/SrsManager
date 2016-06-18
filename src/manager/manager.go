@@ -2,7 +2,6 @@ package manager
 
 import (
 	"net/http"
-	"os"
 	"strings"
 	"utils"
 
@@ -25,18 +24,12 @@ func RestHandler(w http.ResponseWriter, req *http.Request) {
 
 var manager *SrsManager
 
-func InitRestHandler(path string) error {
+func InitRestHandler(config *utils.Config) error {
 	var err error
-	config := utils.NewConfig()
-	if err = config.LoadFromFile(path); err != nil {
-		glog.Errorln("LoadFromFile", err)
-		return err
-	}
-
 	dbDriver := "mysql"
 	dbSource := config.GetString("dbSource")
 	glog.Infoln("dbSource", dbSource)
-	db := NewDBSync(dbDriver, dbSource, "srs_manager")
+	db := NewDBSync(dbDriver, dbSource)
 	if manager, err = NewSrsManager(config, db); err != nil {
 		glog.Errorln("NewSrsManager err", err)
 	}

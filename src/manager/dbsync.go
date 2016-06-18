@@ -18,19 +18,16 @@ const (
 )
 
 type DBSync struct {
-	//db    *sql.DB
 	dbDriver     string
 	dbDataSource string
-	dbName       string
 
 	mutex sync.Mutex
 }
 
-func NewDBSync(dbDriver, dbDataSource, dbName string) *DBSync {
+func NewDBSync(dbDriver, dbDataSource string) *DBSync {
 	return &DBSync{
 		dbDriver:     dbDriver,
 		dbDataSource: dbDataSource,
-		dbName:       dbName,
 	}
 }
 
@@ -174,8 +171,10 @@ func (d *DBSync) LoadSrsServers() ([]*SrsServer, error) {
 	var servers []*SrsServer
 	for rows.Next() {
 		var srs SrsServer
-		if err = rows.Scan(&srs.ID,
+		if err = rows.Scan(
+			&srs.ID,
 			&srs.Host,
+			&srs.Desc,
 			&srs.Type,
 			&srs.Status); err != nil {
 			return nil, err

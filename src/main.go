@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"manager"
 	"net/http"
+	"utils"
 )
 
 var configPath = flag.String("c", "", "config file path")
@@ -23,13 +24,35 @@ var configPath = flag.String("c", "", "config file path")
 	2. 定时拉取每个srs server的系统信息
 */
 
+func GetConfig(path string) (*utils.Config, error) {
+	var err error
+	config := utils.NewConfig()
+	if err = config.LoadFromFile(path); err != nil {
+		return nil, err
+	}
+	return config, nil
+}
+
 func main() {
 	flag.Parse()
-	if err := manager.InitRestHandler(*configPath); err != nil {
+
+	var (
+		config *utils.Config
+		err    error
+		port   int
+	)
+	if config, err = GetConfig(*configPath); err != nil {
+		fmt.Println("GetConfig", err)
+		return
+	} else if err := manager.InitRestHandler(config); err != nil {
 		fmt.Println("err", err)
 		return
 	}
-	fmt.Println("Init end")
+	if port = config.GetInt("port"); port < 0 {
+		fmt.Println("Invalid port param")
+		return
+	}
+	fmt.Println("Init success")
 	http.HandleFunc("/", manager.RestHandler)
-	http.ListenAndServe(":8085", nil)
+	http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 }
