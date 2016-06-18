@@ -10,8 +10,6 @@ import (
 	"strings"
 )
 
-
-
 type SubNet struct {
 	Id        int
 	Ispname   string
@@ -40,8 +38,20 @@ func parseIpDatabase(line string) (s *SubNet, err error) {
 	return
 }
 
-func LoadIpDatabase(database string) (subnets []*SubNet,err error) {
-	subnets=make([]*SubNet,0)
+func GetSubNet(addr string) (subNet net.IPNet, err error) {
+	ip := net.ParseIP(addr)
+	if ip == nil {
+		return nil, fmt.Errorf("unavali ip:%v", addr)
+	}
+	mask := ip.DefaultMask()
+	network := ip.Mask(mask)
+	subNet = net.IPNet{IP: network, Mask: mask}
+
+	return
+}
+
+func LoadIpDatabase(database string) (subnets []*SubNet, err error) {
+	subnets = make([]*SubNet, 0)
 	f, err := os.Open(database)
 	if err != nil {
 		return fmt.Errorf("can not load database file %v", database)
@@ -63,7 +73,7 @@ func LoadIpDatabase(database string) (subnets []*SubNet,err error) {
 			fmt.Println(err)
 			continue
 		}
-		subnets=append(subnets,s)
+		subnets = append(subnets, s)
 	}
 	err = nil
 

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"fmt"
 	"github.com/golang/glog"
 )
 
@@ -37,14 +38,18 @@ type SrsManager struct {
 	db                 *DBSync
 	event_manager      *SrsEventManager
 	room_manager       *RoomManager
-	srs_server_manager *SrsServerManager
+	srs_server_manager *SrsManager
 }
 
 func NewSrsManager(dbSync *DBSync) (*SrsManager, error) {
 	event := &SrsEventManager{db: dbSync}
 	room := &RoomManager{db: dbSync}
-	server := NewSrsServermanager(dbSync)
-	if err := server.LoadServers(); err != nil {
+	server, err := NewSrsServermanager(dbSync)
+	if err != nil {
+		return nil, fmt.Errorf("Load ip.txt failed:%v", err)
+	}
+
+	if err = server.LoadServers(); err != nil {
 		return nil, err
 	}
 	return &SrsManager{

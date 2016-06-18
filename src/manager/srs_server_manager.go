@@ -24,26 +24,30 @@ const (
 	STR_TYPE_ORIGIN    = "origin"
 )
 
-type SrsServerManager struct {
+type SrsManager struct {
 	EdgeUpServers   map[string]*SrsServer
 	EdgeDownServers map[string]*SrsServer
 	OriginServers   map[string]*SrsServer
+	SubNets         map[string]*utils.SubNet
 	db              *DBSync
 	mutex_up        sync.Mutex
 	mutex_down      sync.Mutex
 	mutex_origin    sync.Mutex
 }
 
-func NewSrsServermanager(db *DBSync) *SrsServerManager {
-	return &SrsServerManager{
+func NewSrsServermanager(db *DBSync) (sm *SrsManager, err error) {
+	sm = &SrsManager{
 		db:              db,
 		EdgeUpServers:   make(map[string]*SrsServer),
 		EdgeDownServers: make(map[string]*SrsServer),
 		OriginServers:   make(map[string]*SrsServer),
 	}
+	sm.SubNets, err = utils.LoadIpDatabase("isp.txt")
+
+	return
 }
 
-func (s *SrsServerManager) LoadServers() error {
+func (s *SrsManager) LoadServers() error {
 	servers, err := s.db.LoadSrsServers()
 	if err != nil {
 		glog.Warningln("LoadSrsServers", err)
@@ -67,7 +71,7 @@ func (s *SrsServerManager) LoadServers() error {
 	return nil
 }
 
-func (s *SrsServerManager) HttpHandler(w http.ResponseWriter, r *http.Request) {
+func (s *SrsManager) HttpHandler(w http.ResponseWriter, r *http.Request) {
 	url := r.URL.Path
 	if strings.HasPrefix(url, URL_PATH_SUMMARIES) {
 		s.summaryHandler(w, r)
@@ -79,7 +83,7 @@ func (s *SrsServerManager) HttpHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // /stream/edge
-func (s *SrsServerManager) streamHandler(w http.ResponseWriter, r *http.Request) {
+func (s *SrsManager) streamHandler(w http.ResponseWriter, r *http.Request) {
 	args := GetUrlParams(r.URL.Path, URL_PATH_STREAMS)
 	var svrtype int
 	if len(args) == 0 || args[0] == STR_TYPE_ORIGIN {
@@ -110,7 +114,7 @@ func (s *SrsServerManager) streamHandler(w http.ResponseWriter, r *http.Request)
 
 // /summary/edge
 // /summary/edge/ip/port
-func (s *SrsServerManager) summaryHandler(w http.ResponseWriter, r *http.Request) {
+func (s *SrsManager) summaryHandler(w http.ResponseWriter, r *http.Request) {
 	args := GetUrlParams(r.URL.Path, URL_PATH_SUMMARIES)
 	if len(args) < 1 {
 		w.WriteHeader(http.StatusBadRequest)
@@ -147,8 +151,23 @@ type ReqCreateServer struct {
 	ServerType int    `json:"type"`
 }
 
+func (s *SrsManager) getSubnet(addr string) (subnet *utils.SubNet, err error) {
+	var (
+		net net.IPNet
+		ok  bool
+	)
+	if net, err = utils.GetSubNet(addr); err != nil {
+		return
+	}
+	if subnet, ok = s.SubNets[net.String()]; !ok {
+		err = fmt.Errorf("unavali ip:%v not exsit ip.txt", addr)
+	}
+
+	return
+}
+
 // server/dege  PUT
-func (s *SrsServerManager) serverHandler(w http.ResponseWriter, r *http.Request) {
+func (s *SrsManager) serverHandler(w http.ResponseWriter, r *http.Request) {
 	glog.Infoln("serverHandler")
 	var (
 		req    ReqCreateServer
@@ -180,7 +199,7 @@ func (s *SrsServerManager) serverHandler(w http.ResponseWriter, r *http.Request)
 }
 
 // stream 应该从 source 节点取
-func (s *SrsServerManager) GetSrsServer(serverType int) map[string]*SrsServer {
+func (s *SrsManager) GetSrsServer(serverType int) map[string]*SrsServer {
 	var summaries map[string]*SrsServer
 
 	servers, mutex := s.getServersByType(serverType)
@@ -200,7 +219,7 @@ func (s *SrsServerManager) GetSrsServer(serverType int) map[string]*SrsServer {
 	return summaries
 }
 
-func (s *SrsServerManager) getServersByType(serverType int) (map[string]*SrsServer,
+func (s *SrsManager) getServersByType(serverType int) (map[string]*SrsServer,
 	*sync.Mutex) {
 	switch serverType {
 	case SERVER_TYPE_EDGE_UP:
@@ -214,7 +233,7 @@ func (s *SrsServerManager) getServersByType(serverType int) (map[string]*SrsServ
 	}
 }
 
-func (s *SrsServerManager) getTypeByName(name string) int {
+func (s *SrsManager) getTypeByName(name string) int {
 	switch name {
 	case STR_TYPE_EDGE_UP:
 		return SERVER_TYPE_EDGE_UP
@@ -227,11 +246,11 @@ func (s *SrsServerManager) getTypeByName(name string) int {
 	}
 }
 
-func (s *SrsServerManager) getServersByName(name string) (map[string]*SrsServer, *sync.Mutex) {
+func (s *SrsManager) getServersByName(name string) (map[string]*SrsServer, *sync.Mutex) {
 	return s.getServersByType(s.getTypeByName(name))
 }
 
-func (s *SrsServerManager) AddSrsServer(svr *SrsServer) error {
+func (s *SrsManager) AddSrsServer(svr *SrsServer) error {
 	servers, mutex := s.getServersByType(svr.ServerType)
 
 	if servers == nil {
