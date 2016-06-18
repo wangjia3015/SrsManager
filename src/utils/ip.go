@@ -54,7 +54,7 @@ func LoadIpDatabase(database string) (subnets map[string]*SubNet, err error) {
 	subnets = make(map[string]*SubNet)
 	f, err := os.Open(database)
 	if err != nil {
-		return nil,fmt.Errorf("can not load database file %v", database)
+		return nil, fmt.Errorf("can not load database file %v", database)
 	}
 	defer f.Close()
 	rd := bufio.NewReader(f)
@@ -66,13 +66,13 @@ func LoadIpDatabase(database string) (subnets map[string]*SubNet, err error) {
 		}
 		index++
 		if err != nil {
-			return nil,fmt.Errorf("load database file:%v err:%v", database, err)
+			return nil, fmt.Errorf("load database file:%v err:%v", database, err)
 		}
 		var s *SubNet
 		if s, err = parseIpDatabase(line); err != nil {
 			continue
 		}
-		subnets[s.Net.String()]=s
+		subnets[s.Net.String()] = s
 	}
 	err = nil
 

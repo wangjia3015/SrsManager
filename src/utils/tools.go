@@ -18,23 +18,28 @@ const (
 	HTTP_DELETE = "DELETE"
 )
 
-func sendRequest(method, url string) (int, []byte, error) {
-	code := -1
-	var body []byte
-	var err error
-	client := http.Client{}
-	req, err := http.NewRequest(method, url, nil)
-	if err != nil {
-		return code, body, err
+func sendRequest(method, url string) (respBody []byte, err error) {
+	var (
+		req *http.Request
+	)
+	client := http.DefaultClient
+	if req, err = http.NewRequest(method, url, nil); err != nil {
+		return
 	}
-	rsp, err := client.Do(req)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
+	resp, err := client.Do(req)
 	if err != nil {
-		return code, body, err
+		return
 	}
-	defer rsp.Body.Close()
-	code = rsp.StatusCode
-	body, err = ioutil.ReadAll(rsp.Body)
-	return code, body, err
+	if resp.ContentLength != 0 {
+		defer resp.Body.Close()
+		respBody, _ = ioutil.ReadAll(resp.Body)
+	}
+	if resp.StatusCode != http.StatusOK {
+		err = fmt.Errorf("unavali code :%v response :%v", resp.StatusCode, string(respBody))
+	}
+
+	return
 }
 
 type KbpsInfo struct {
@@ -66,30 +71,29 @@ type RspStream struct {
 	Streams  []Stream `json:"streams"`
 }
 
-func GetStreams(host string) (RspStream, error) {
+func GetStreams(host string) (stream RspStream, err error) {
+	var body []byte
 	url := fmt.Sprintf("http://%s/%s", host, URL_STREAMS_PATH)
-	code, body, err := sendRequest(HTTP_GET, url)
-
-	var stream RspStream
-	if code == http.StatusOK {
-		err = json.Unmarshal(body, &stream)
+	if body, err = sendRequest(HTTP_GET, url); err != nil {
+		return
 	}
-	return stream, err
+	err = json.Unmarshal(body, &stream)
+
+	return
 }
 
 type RspBase struct {
 	Code int `json:"code"`
 }
 
-func KickOffClient(host string, clientID int) (RspBase, error) {
+func KickOffClient(host string, clientID int) (rsp RspBase, err error) {
+	var body []byte
 	url := fmt.Sprintf("http://%s/%s/%d", host, URL_CLIENTS_PATH, clientID)
-	fmt.Println(url)
-	code, body, err := sendRequest(HTTP_DELETE, url)
-	var rsp RspBase
-	if code == http.StatusOK {
-		err = json.Unmarshal(body, &rsp)
+	if body, err = sendRequest(HTTP_DELETE, url); err == nil {
+		return
 	}
-	return rsp, err
+	err = json.Unmarshal(body, &rsp)
+	return
 }
 
 type SelfInfo struct {
@@ -146,16 +150,13 @@ type RspSummary struct {
 	Data SummaryData `json:"data"`
 }
 
-func GetSummaries(host string) (*RspSummary, error) {
+func GetSummaries(host string) (info *RspSummary, err error) {
+	var body []byte
 	url := fmt.Sprintf("http://%s/%s", host, URL_SUMMARIES_PATH)
-	code, body, err := sendRequest(HTTP_GET, url)
-	var info RspSummary
-	if err != nil {
-		return nil, err
-	} else if code != http.StatusOK {
-		return nil, errors.New(fmt.Sprintf("http request status %d", code))
-	} else if err = json.Unmarshal(body, &info); err != nil {
-		return nil, err
+	if body, err = sendRequest(HTTP_GET, url); err != nil {
+		return
 	}
-	return &info, err
+	err = json.Unmarshal(body, &info)
+
+	return
 }
