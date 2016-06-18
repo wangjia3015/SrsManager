@@ -2,9 +2,10 @@ package manager
 
 import (
 	"fmt"
-	"github.com/golang/glog"
 	"time"
 	"utils"
+
+	"github.com/golang/glog"
 )
 
 const (

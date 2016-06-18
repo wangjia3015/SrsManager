@@ -10,8 +10,9 @@ import (
 	"sync"
 	"utils"
 
-	"github.com/golang/glog"
 	"net"
+
+	"github.com/golang/glog"
 )
 
 const (
@@ -55,14 +56,10 @@ func (s *ServerManager) LoadServers() error {
 	}
 
 	for _, svr := range servers {
-		if svr.Type == SERVER_TYPE_EDGE_UP {
-			s.UpServers[svr.Host] = svr
-			go svr.UpdateStatusLoop()
-		} else if svr.Type == SERVER_TYPE_ORIGIN {
-			s.OriginServers[svr.Host] = svr
-			go svr.UpdateStatusLoop()
-		} else if svr.Type == SERVER_TYPE_EDGE_DOWN {
-			s.OriginServers[svr.Host] = svr
+		if ss, mutex := s.getServersByType(svr.Type); ss != nil {
+			mutex.Lock()
+			ss[svr.Host] = svr
+			mutex.Unlock()
 			go svr.UpdateStatusLoop()
 		} else {
 			glog.Warningln("Server type undefeine", svr)
@@ -85,23 +82,27 @@ func (s *ServerManager) HttpHandler(w http.ResponseWriter, r *http.Request) {
 // /stream/edge
 func (s *ServerManager) streamHandler(w http.ResponseWriter, r *http.Request) {
 	args := GetUrlParams(r.URL.Path, URL_PATH_STREAMS)
-	var svrtype int
-	if len(args) == 0 || args[0] == STR_TYPE_ORIGIN {
-		svrtype = SERVER_TYPE_ORIGIN
-	} else if args[0] == STR_TYPE_EDGE_UP {
-		svrtype = SERVER_TYPE_EDGE_UP
-	} else if args[0] == STR_TYPE_EDGE_DOWN {
-		svrtype = SERVER_TYPE_EDGE_DOWN
+
+	var paramName string
+	if len(args) < 1 {
+		paramName = STR_TYPE_ORIGIN
 	} else {
+		paramName = args[0]
+	}
+
+	servers, mutex := s.getServersByName(paramName)
+	if servers == nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	streams := make(map[string]*StreamInfo)
-	servers := s.GetSrsServer(svrtype)
+
+	mutex.Lock()
 	for h, svr := range servers {
 		streams[h] = svr.Streams
 	}
+	mutex.Unlock()
 
 	if b, err := json.Marshal(streams); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -110,6 +111,7 @@ func (s *ServerManager) streamHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.Write(b)
 	}
+
 }
 
 // /summary/edge
@@ -122,19 +124,14 @@ func (s *ServerManager) summaryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var servers map[string]*SrsServer
 	infos := make(map[string]*SummaryInfo)
-	if args[0] == STR_TYPE_EDGE_UP {
-		servers = s.GetSrsServer(SERVER_TYPE_EDGE_UP)
-	} else if args[0] == STR_TYPE_ORIGIN {
-		servers = s.GetSrsServer(SERVER_TYPE_ORIGIN)
-	} else if args[0] == STR_TYPE_EDGE_DOWN {
-		servers = s.GetSrsServer(SERVER_TYPE_EDGE_DOWN)
-	}
+	servers, mutex := s.getServersByName(args[0])
 
+	mutex.Lock()
 	for h, svr := range servers {
 		infos[h] = svr.Summary
 	}
+	mutex.Unlock()
 
 	if b, err := json.Marshal(infos); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -162,7 +159,6 @@ func (s *ServerManager) getSubnet(addr string) (subnet *utils.SubNet, err error)
 	if subnet, ok = s.SubNets[net.String()]; !ok {
 		err = fmt.Errorf("unavali ip:%v not exsit ip.txt", addr)
 	}
-
 	return
 }
 
@@ -179,7 +175,10 @@ func (s *ServerManager) serverHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	server := NewSrsServer(req.Host, req.Desc, req.ServerType, loc)
+
+	// TODO
+	var subNet *utils.SubNet
+	server := NewSrsServer(req.Host, req.Desc, req.ServerType, subNet)
 	if err = s.AddSrsServer(server); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		glog.Warningln("AddsrsServer error", err, server)
@@ -192,25 +191,29 @@ func (s *ServerManager) serverHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(result)
 }
 
-// stream 应该从 source 节点取
-func (s *ServerManager) GetSrsServer(serverType int) map[string]*SrsServer {
-	var summaries map[string]*SrsServer
+func (s *ServerManager) AddSrsServer(svr *SrsServer) error {
+	servers, mutex := s.getServersByType(svr.Type)
 
-	servers, mutex := s.getServersByType(serverType)
 	if servers == nil {
-		return summaries
+		glog.Warningln("error server type", svr.Type, svr)
+		return errors.New(fmt.Sprintln("err server type", svr.Type))
+	}
+
+	if _, ok := servers[svr.Host]; ok {
+		glog.Warningln("error server host already exists", svr.Host, svr)
+		return errors.New(fmt.Sprintln("err server type", svr.Host))
+	}
+
+	if err := s.db.InsertServer(svr); err != nil {
+		return err
 	}
 
 	mutex.Lock()
-	// copy
-	if servers != nil {
-		summaries = make(map[string]*SrsServer)
-		for k, v := range servers {
-			summaries[k] = v
-		}
-	}
+	servers[svr.Host] = svr
 	mutex.Unlock()
-	return summaries
+	glog.Infoln("add server", svr.Host, svr)
+	go svr.UpdateStatusLoop()
+	return nil
 }
 
 func (s *ServerManager) getServersByType(serverType int) (map[string]*SrsServer,
@@ -242,29 +245,4 @@ func (s *ServerManager) getTypeByName(name string) int {
 
 func (s *ServerManager) getServersByName(name string) (map[string]*SrsServer, *sync.Mutex) {
 	return s.getServersByType(s.getTypeByName(name))
-}
-
-func (s *ServerManager) AddSrsServer(svr *SrsServer) error {
-	servers, mutex := s.getServersByType(svr.Type)
-
-	if servers == nil {
-		glog.Warningln("error server type", svr.Type, svr)
-		return errors.New(fmt.Sprintln("err server type", svr.Type))
-	}
-
-	if _, ok := servers[svr.Host]; ok {
-		glog.Warningln("error server host already exists", svr.Host, svr)
-		return errors.New(fmt.Sprintln("err server type", svr.Host))
-	}
-
-	if err := s.db.InsertServer(svr); err != nil {
-		return err
-	}
-
-	mutex.Lock()
-	servers[svr.Host] = svr
-	mutex.Unlock()
-	glog.Infoln("add server", svr.Host, svr)
-	go svr.UpdateStatusLoop()
-	return nil
 }
