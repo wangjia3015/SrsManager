@@ -25,22 +25,22 @@ const (
 )
 
 type ServerManager struct {
-	EdgeUpServers   map[string]*SrsServer
-	EdgeDownServers map[string]*SrsServer
-	OriginServers   map[string]*SrsServer
-	SubNets         map[string]*utils.SubNet
-	db              *DBSync
-	mutex_up        sync.Mutex
-	mutex_down      sync.Mutex
-	mutex_origin    sync.Mutex
+	UpServers     map[string]*SrsServer
+	DownServers   map[string]*SrsServer
+	OriginServers map[string]*SrsServer
+	SubNets       map[string]*utils.SubNet
+	db            *DBSync
+	upLock        sync.Mutex
+	downLock      sync.Mutex
+	originLock    sync.Mutex
 }
 
 func NewSrsServermanager(db *DBSync) (sm *ServerManager, err error) {
 	sm = &ServerManager{
-		db:              db,
-		EdgeUpServers:   make(map[string]*SrsServer),
-		EdgeDownServers: make(map[string]*SrsServer),
-		OriginServers:   make(map[string]*SrsServer),
+		db:            db,
+		UpServers:     make(map[string]*SrsServer),
+		DownServers:   make(map[string]*SrsServer),
+		OriginServers: make(map[string]*SrsServer),
 	}
 	sm.SubNets, err = utils.LoadIpDatabase("isp.txt")
 
@@ -56,7 +56,7 @@ func (s *ServerManager) LoadServers() error {
 
 	for _, svr := range servers {
 		if svr.ServerType == SERVER_TYPE_EDGE_UP {
-			s.EdgeUpServers[svr.Host] = svr
+			s.UpServers[svr.Host] = svr
 			go svr.UpdateStatusLoop()
 		} else if svr.ServerType == SERVER_TYPE_ORIGIN {
 			s.OriginServers[svr.Host] = svr
@@ -217,11 +217,11 @@ func (s *ServerManager) getServersByType(serverType int) (map[string]*SrsServer,
 	*sync.Mutex) {
 	switch serverType {
 	case SERVER_TYPE_EDGE_UP:
-		return s.EdgeUpServers, &s.mutex_up
+		return s.UpServers, &s.upLock
 	case SERVER_TYPE_EDGE_DOWN:
-		return s.EdgeDownServers, &s.mutex_down
+		return s.DownServers, &s.downLock
 	case SERVER_TYPE_ORIGIN:
-		return s.OriginServers, &s.mutex_origin
+		return s.OriginServers, &s.originLock
 	default:
 		return nil, nil
 	}
