@@ -1,4 +1,4 @@
-package srs_client
+package utils
 
 import (
 	"encoding/json"
