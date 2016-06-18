@@ -1,10 +1,8 @@
 package manager
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"sync"
@@ -105,14 +103,9 @@ func (s *ServerManager) streamHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	mutex.Unlock()
 
-	if b, err := json.Marshal(streams); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		glog.Warningln("Marshal", streams)
-		return
-	} else {
-		w.Write(b)
+	if err := utils.WriteObjectResponse(w, streams); err != nil {
+		glog.Warningln("writeRespons err", streams)
 	}
-
 }
 
 // /summary/edge
@@ -134,12 +127,8 @@ func (s *ServerManager) summaryHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	mutex.Unlock()
 
-	if b, err := json.Marshal(infos); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		glog.Warningln("Marshal", infos)
-		return
-	} else {
-		w.Write(b)
+	if err := utils.WriteObjectResponse(w, infos); err != nil {
+		glog.Warningln("writeRespons err", infos)
 	}
 }
 
@@ -166,14 +155,13 @@ func (s *ServerManager) getSubnet(addr string) (subnet *utils.SubNet, err error)
 // server/dege  PUT
 func (s *ServerManager) serverHandler(w http.ResponseWriter, r *http.Request) {
 	var (
-		req    ReqCreateServer
-		result []byte
-		err    error
+		req ReqCreateServer
+		err error
 	)
-	if result, err = ioutil.ReadAll(r.Body); err != nil {
-		return
-	} else if err = json.Unmarshal(result, &req); err != nil {
+
+	if err = utils.ReadAndUnmarshalObject(r.Body, &req); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		glog.Warningln("ReadAndUnmarshalObject", err)
 		return
 	}
 
@@ -185,11 +173,10 @@ func (s *ServerManager) serverHandler(w http.ResponseWriter, r *http.Request) {
 		glog.Warningln("AddsrsServer error", err, server)
 		return
 	}
-	if result, err = json.Marshal(server); err != nil {
-		glog.Warningln("error", err, server)
+	if err := utils.WriteObjectResponse(w, server); err != nil {
+		glog.Warningln("writeRespons err", server)
 	}
 	glog.Infoln("AddSrsServer done", server)
-	w.Write(result)
 }
 
 func (s *ServerManager) AddSrsServer(svr *SrsServer) error {

@@ -1,10 +1,8 @@
 package manager
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"time"
 	"utils"
@@ -22,33 +20,26 @@ const (
 func (r *RoomManager) HttpHandler(w http.ResponseWriter, req *http.Request) {
 	glog.Infoln("RoomManager", req.Method)
 	var err error
-	var result []byte
 
 	args := GetUrlParams(req.URL.Path, URL_PATH_ROOM)
 
-	if result, err = ioutil.ReadAll(req.Body); err != nil {
-		glog.Warningln("ReadBody err", err)
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
 	switch req.Method {
 	case HTTP_POST:
-		var req RoomCreateReq
-		var room *Room
-		if err = json.Unmarshal(result, &req); err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			glog.Warningln("Unmarshal", err)
-		} else if room, err = r.CreateRoom(req); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			glog.Warningln("CreateRoom", err)
-		} else if result, err = json.Marshal(room); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			glog.Warningln("Marshal", err)
-		} else {
-			w.Write(result)
+		var (
+			request RoomCreateReq
+			room    *Room
+			result  []byte
+		)
+		err = utils.ReadAndUnmarshalObject(req.Body, &request)
+		if err == nil {
+			room, err = r.CreateRoom(request)
+		}
+		if err == nil {
+			err = utils.WriteObjectResponse(w, room)
 		}
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			glog.Warningln("POST err", req.URL.Path, string(result), err)
 			return
 		}
 	case HTTP_DELETE:
