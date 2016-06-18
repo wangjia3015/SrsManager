@@ -26,11 +26,12 @@ const (
 )
 
 type ServerManager struct {
+	db *DBSync
+
 	UpServers     map[string]*SrsServer
 	DownServers   map[string]*SrsServer
 	OriginServers map[string]*SrsServer
 	SubNets       map[string]*utils.SubNet
-	db            *DBSync
 	upLock        sync.Mutex
 	downLock      sync.Mutex
 	originLock    sync.Mutex

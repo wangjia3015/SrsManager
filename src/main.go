@@ -7,6 +7,8 @@ import (
 	"net/http"
 )
 
+var configPath = flag.String("c", "", "config file path")
+
 /*
 	ROOM:
 	1. 创建room，
@@ -23,7 +25,7 @@ import (
 
 func main() {
 	flag.Parse()
-	if err := manager.InitRestHandler(); err != nil {
+	if err := manager.InitRestHandler(*configPath); err != nil {
 		fmt.Println("err", err)
 		return
 	}

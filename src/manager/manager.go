@@ -2,9 +2,12 @@ package manager
 
 import (
 	"net/http"
+	"os"
 	"strings"
+	"utils"
 
 	"fmt"
+
 	"github.com/golang/glog"
 )
 
@@ -22,12 +25,19 @@ func RestHandler(w http.ResponseWriter, req *http.Request) {
 
 var manager *SrsManager
 
-func InitRestHandler() error {
-	dbDriver := "mysql"
-	dbSource := "test:test@tcp(192.168.88.129:3306)/srs_manager"
-	db := NewDBSync(dbDriver, dbSource, "srs_manager")
+func InitRestHandler(path string) error {
 	var err error
-	if manager, err = NewSrsManager(db); err != nil {
+	config := utils.NewConfig()
+	if err = config.LoadFromFile(path); err != nil {
+		glog.Errorln("LoadFromFile", err)
+		return err
+	}
+
+	dbDriver := "mysql"
+	dbSource := config.GetString("dbSource")
+	glog.Infoln("dbSource", dbSource)
+	db := NewDBSync(dbDriver, dbSource, "srs_manager")
+	if manager, err = NewSrsManager(config, db); err != nil {
 		glog.Errorln("NewSrsManager err", err)
 	}
 
@@ -35,13 +45,14 @@ func InitRestHandler() error {
 }
 
 type SrsManager struct {
-	db                 *DBSync
-	event_manager      *EventManager
-	room_manager       *RoomManager
-	srs_server_manager *ServerManager
+	config           *utils.Config
+	db               *DBSync
+	eventManager     *EventManager
+	roomManager      *RoomManager
+	srsServerManager *ServerManager
 }
 
-func NewSrsManager(dbSync *DBSync) (*SrsManager, error) {
+func NewSrsManager(config *utils.Config, dbSync *DBSync) (*SrsManager, error) {
 	event := &EventManager{db: dbSync}
 	room := &RoomManager{db: dbSync}
 	server, err := NewSrsServermanager(dbSync)
@@ -53,10 +64,11 @@ func NewSrsManager(dbSync *DBSync) (*SrsManager, error) {
 		return nil, err
 	}
 	return &SrsManager{
-		db:                 dbSync,
-		event_manager:      event,
-		room_manager:       room,
-		srs_server_manager: server,
+		config:           config,
+		db:               dbSync,
+		eventManager:     event,
+		roomManager:      room,
+		srsServerManager: server,
 	}, nil
 }
 
@@ -64,13 +76,13 @@ func (s *SrsManager) HttpHandler(w http.ResponseWriter, r *http.Request) {
 	url := r.URL.Path
 	glog.Infoln("HttpHandler url", url)
 	if strings.HasPrefix(url, URL_PATH_EVENT) {
-		s.event_manager.HttpHandler(w, r)
+		s.eventManager.HttpHandler(w, r)
 	} else if strings.HasPrefix(url, URL_PATH_ROOM) {
-		s.room_manager.HttpHandler(w, r)
+		s.roomManager.HttpHandler(w, r)
 	} else if strings.HasPrefix(url, URL_PATH_SUMMARIES) ||
 		strings.HasPrefix(url, URL_PATH_STREAMS) {
-		s.srs_server_manager.HttpHandler(w, r)
+		s.srsServerManager.HttpHandler(w, r)
 	} else if strings.HasPrefix(url, URL_PATH_SERVER) {
-		s.srs_server_manager.HttpHandler(w, r)
+		s.srsServerManager.HttpHandler(w, r)
 	}
 }
