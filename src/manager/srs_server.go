@@ -27,12 +27,12 @@ type SummaryInfo struct {
 }
 
 type SrsServer struct {
-	ID         int64
-	Host       string
-	ServerType int
-	Status     int // 暂时没用
+	ID      int64
+	Host    string
+	Type    int
+	Status  int // 暂时没用
 
-	Desc string
+	Desc    string
 
 	Net     *utils.SubNet
 	Streams *StreamInfo
@@ -42,7 +42,7 @@ type SrsServer struct {
 func NewSrsServer(host, desc string, serverType int, net *utils.SubNet) *SrsServer {
 	return &SrsServer{
 		Host:       host,
-		ServerType: serverType,
+		Type: serverType,
 		Net:        net,
 	}
 }

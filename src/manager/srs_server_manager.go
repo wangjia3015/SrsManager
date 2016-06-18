@@ -55,13 +55,13 @@ func (s *ServerManager) LoadServers() error {
 	}
 
 	for _, svr := range servers {
-		if svr.ServerType == SERVER_TYPE_EDGE_UP {
+		if svr.Type == SERVER_TYPE_EDGE_UP {
 			s.UpServers[svr.Host] = svr
 			go svr.UpdateStatusLoop()
-		} else if svr.ServerType == SERVER_TYPE_ORIGIN {
+		} else if svr.Type == SERVER_TYPE_ORIGIN {
 			s.OriginServers[svr.Host] = svr
 			go svr.UpdateStatusLoop()
-		} else if svr.ServerType == SERVER_TYPE_EDGE_DOWN {
+		} else if svr.Type == SERVER_TYPE_EDGE_DOWN {
 			s.OriginServers[svr.Host] = svr
 			go svr.UpdateStatusLoop()
 		} else {
@@ -245,11 +245,11 @@ func (s *ServerManager) getServersByName(name string) (map[string]*SrsServer, *s
 }
 
 func (s *ServerManager) AddSrsServer(svr *SrsServer) error {
-	servers, mutex := s.getServersByType(svr.ServerType)
+	servers, mutex := s.getServersByType(svr.Type)
 
 	if servers == nil {
-		glog.Warningln("error server type", svr.ServerType, svr)
-		return errors.New(fmt.Sprintln("err server type", svr.ServerType))
+		glog.Warningln("error server type", svr.Type, svr)
+		return errors.New(fmt.Sprintln("err server type", svr.Type))
 	}
 
 	if _, ok := servers[svr.Host]; ok {
