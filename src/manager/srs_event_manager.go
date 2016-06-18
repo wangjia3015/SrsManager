@@ -48,7 +48,7 @@ type ConnectInfo struct {
 	Args []string
 }
 
-func (s *SrsEventManager) HttpHandler(w http.ResponseWriter, req *http.Request) {
+func (s *EventManager) HttpHandler(w http.ResponseWriter, req *http.Request) {
 	glog.Infoln("SrsEventManager", req.URL.RawQuery)
 	ret := 0
 	var info ConnectInfo
@@ -80,29 +80,29 @@ func (s *SrsEventManager) HttpHandler(w http.ResponseWriter, req *http.Request) 
 	w.Write([]byte(strconv.Itoa(ret)))
 }
 
-type SrsEventManager struct {
+type EventManager struct {
 	db *DBSync
 }
 
 // 建立链接时
-func (s *SrsEventManager) OnConnect(info ConnectInfo) error {
+func (s *EventManager) OnConnect(info ConnectInfo) error {
 	return nil
 }
 
 // 关闭连接时
-func (s *SrsEventManager) OnClose(info ConnectInfo) error { return nil }
+func (s *EventManager) OnClose(info ConnectInfo) error { return nil }
 
 // 用来判断用户是否有权限播放
-func (s *SrsEventManager) OnPlay(info ConnectInfo) error { return nil }
+func (s *EventManager) OnPlay(info ConnectInfo) error { return nil }
 
 // 当客户端停止播放时。
 // 备注：停止播放可能不会关闭连接，还能再继续播放
-func (s *SrsEventManager) OnStop(info ConnectInfo) error { return nil }
+func (s *EventManager) OnStop(info ConnectInfo) error { return nil }
 
-func (s *SrsEventManager) OnUnpublish(info ConnectInfo) error { return nil }
+func (s *EventManager) OnUnpublish(info ConnectInfo) error { return nil }
 
 // 主播推送时
-func (s *SrsEventManager) OnPublish(info ConnectInfo) error {
+func (s *EventManager) OnPublish(info ConnectInfo) error {
 	glog.Infoln("OnPublish", info)
 	var room *Room
 	var err error

@@ -36,13 +36,13 @@ func InitRestHandler() error {
 
 type SrsManager struct {
 	db                 *DBSync
-	event_manager      *SrsEventManager
+	event_manager      *EventManager
 	room_manager       *RoomManager
-	srs_server_manager *SrsManager
+	srs_server_manager *ServerManager
 }
 
 func NewSrsManager(dbSync *DBSync) (*SrsManager, error) {
-	event := &SrsEventManager{db: dbSync}
+	event := &EventManager{db: dbSync}
 	room := &RoomManager{db: dbSync}
 	server, err := NewSrsServermanager(dbSync)
 	if err != nil {
