@@ -34,16 +34,16 @@ type SrsServer struct {
 
 	Desc string
 
-	Loc     utils.Loc
+	Net     *utils.SubNet
 	Streams *StreamInfo
 	Summary *SummaryInfo
 }
 
-func NewSrsServer(host, desc string, serverType int, loc utils.Loc) *SrsServer {
+func NewSrsServer(host, desc string, serverType int, net *utils.SubNet) *SrsServer {
 	return &SrsServer{
 		Host:       host,
 		ServerType: serverType,
-		Loc:        loc,
+		Net:        net,
 	}
 }
 

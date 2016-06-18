@@ -11,6 +11,7 @@ import (
 	"utils"
 
 	"github.com/golang/glog"
+	"net"
 )
 
 const (
@@ -148,17 +149,12 @@ type ReqCreateServer struct {
 
 // server/dege  PUT
 func (s *SrsServerManager) serverHandler(w http.ResponseWriter, r *http.Request) {
-	//args := GetUrlParams(r.URL.Path, URL_PATH_SUMMARIES)
 	glog.Infoln("serverHandler")
-	//if len(args) < 1 {
-	//	w.WriteHeader(http.StatusBadRequest)
-	//	glog.Warningln("invalid arg num")
-	//	return
-	//}
-
-	var req ReqCreateServer
-	var result []byte
-	var err error
+	var (
+		req    ReqCreateServer
+		result []byte
+		err    error
+	)
 
 	if result, err = ioutil.ReadAll(r.Body); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -169,10 +165,6 @@ func (s *SrsServerManager) serverHandler(w http.ResponseWriter, r *http.Request)
 		glog.Warningln("json unmarshal", err)
 		return
 	}
-	glog.Infoln(string(result))
-
-	// TODO
-	var loc utils.Loc
 
 	server := NewSrsServer(req.Host, req.Desc, req.ServerType, loc)
 	if err = s.AddSrsServer(server); err != nil {
