@@ -39,8 +39,6 @@ func sendRequest(method, url string) (int, []byte, error) {
 	return code, body, err
 }
 
-
-
 type KbpsInfo struct {
 	Recv30s int `json:"recv_30s"`
 	Send30s int `json:"send_30s"`
@@ -60,7 +58,7 @@ type Stream struct {
 	ClientNum int       `json:"clients"`
 	SendBytes int64     `json:"send_bytes"`
 	RecvBytes int64     `json:"recv_bytes"`
-	Kbps      KbpsInfo  `json:"kshbps"`
+	Kbps      KbpsInfo  `json:"kbps"`
 	Publish   Publisher `json:"publish"`
 }
 
@@ -95,7 +93,6 @@ func KickOffClient(host string, clientID int) (RspBase, error) {
 	}
 	return rsp, err
 }
-
 
 type SelfInfo struct {
 	Version    string  `json:"version"`
