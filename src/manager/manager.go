@@ -17,17 +17,17 @@ const (
 )
 
 func RestHandler(w http.ResponseWriter, req *http.Request) {
-	srs_manager.HttpHandler(w, req)
+	manager.HttpHandler(w, req)
 }
 
-var srs_manager *SrsManager
+var manager *SrsManager
 
 func InitRestHandler() error {
 	dbDriver := "mysql"
 	dbSource := "test:test@tcp(192.168.88.129:3306)/srs_manager"
 	db := NewDBSync(dbDriver, dbSource, "srs_manager")
 	var err error
-	if srs_manager, err = NewSrsManager(db); err != nil {
+	if manager, err = NewSrsManager(db); err != nil {
 		glog.Errorln("NewSrsManager err", err)
 	}
 
