@@ -2,8 +2,13 @@ package manager
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strings"
+	"sync"
+	"utils"
 
 	"github.com/golang/glog"
 )
@@ -23,13 +28,17 @@ type SrsServerManager struct {
 	EdgeDownServers map[string]*SrsServer
 	OriginServers   map[string]*SrsServer
 	db              *DBSync
+	mutex_up        sync.Mutex
+	mutex_down      sync.Mutex
+	mutex_origin    sync.Mutex
 }
 
 func NewSrsServermanager(db *DBSync) *SrsServerManager {
 	return &SrsServerManager{
-		db:            db,
-		EdgeUpServers: make(map[string]*SrsServer),
-		OriginServers: make(map[string]*SrsServer),
+		db:              db,
+		EdgeUpServers:   make(map[string]*SrsServer),
+		EdgeDownServers: make(map[string]*SrsServer),
+		OriginServers:   make(map[string]*SrsServer),
 	}
 }
 
@@ -63,6 +72,8 @@ func (s *SrsServerManager) HttpHandler(w http.ResponseWriter, r *http.Request) {
 		s.summaryHandler(w, r)
 	} else if strings.HasPrefix(url, URL_PATH_STREAMS) {
 		s.streamHandler(w, r)
+	} else if strings.HasPrefix(url, URL_PATH_SERVER) {
+		s.serverHandler(w, r)
 	}
 }
 
@@ -106,7 +117,7 @@ func (s *SrsServerManager) summaryHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	var servers map[string]SrsServer
+	var servers map[string]*SrsServer
 	infos := make(map[string]*SummaryInfo)
 	if args[0] == STR_TYPE_EDGE_UP {
 		servers = s.GetSrsServer(SERVER_TYPE_EDGE_UP)
@@ -129,30 +140,126 @@ func (s *SrsServerManager) summaryHandler(w http.ResponseWriter, r *http.Request
 	}
 }
 
-// stream 应该从 source 节点取
-func (s *SrsServerManager) GetSrsServer(serverType int) map[string]SrsServer {
-	var servers map[string]*SrsServer
-	var summaries map[string]SrsServer
+type ReqCreateServer struct {
+	Host       string `json:"host"`
+	Desc       string `json:"desc"`
+	ServerType int    `json:"type"`
+}
 
-	switch serverType {
-	case SERVER_TYPE_EDGE_UP:
-		servers = s.EdgeUpServers
-	case SERVER_TYPE_ORIGIN:
-		servers = s.OriginServers
-	case SERVER_TYPE_EDGE_DOWN:
-		servers = s.EdgeDownServers
+// server/dege  PUT
+func (s *SrsServerManager) serverHandler(w http.ResponseWriter, r *http.Request) {
+	//args := GetUrlParams(r.URL.Path, URL_PATH_SUMMARIES)
+	glog.Infoln("serverHandler")
+	//if len(args) < 1 {
+	//	w.WriteHeader(http.StatusBadRequest)
+	//	glog.Warningln("invalid arg num")
+	//	return
+	//}
+
+	var req ReqCreateServer
+	var result []byte
+	var err error
+
+	if result, err = ioutil.ReadAll(r.Body); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		glog.Warningln("read request err", err)
+		return
+	} else if err = json.Unmarshal(result, &req); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		glog.Warningln("json unmarshal", err)
+		return
+	}
+	glog.Infoln(string(result))
+
+	// TODO
+	var loc utils.Loc
+
+	server := NewSrsServer(req.Host, req.Desc, req.ServerType, loc)
+	if err = s.AddSrsServer(server); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		glog.Warningln("AddsrsServer error", err, server)
+		return
+	}
+	if result, err = json.Marshal(server); err != nil {
+		glog.Warningln("error", err, server)
+	}
+	glog.Infoln("AddSrsServer done", server)
+	w.Write(result)
+}
+
+// stream 应该从 source 节点取
+func (s *SrsServerManager) GetSrsServer(serverType int) map[string]*SrsServer {
+	var summaries map[string]*SrsServer
+
+	servers, mutex := s.getServersByType(serverType)
+	if servers == nil {
+		return summaries
 	}
 
+	mutex.Lock()
 	// copy
 	if servers != nil {
-		summaries = make(map[string]SrsServer)
+		summaries = make(map[string]*SrsServer)
 		for k, v := range servers {
-			summaries[k] = *v
+			summaries[k] = v
 		}
 	}
+	mutex.Unlock()
 	return summaries
 }
 
+func (s *SrsServerManager) getServersByType(serverType int) (map[string]*SrsServer,
+	*sync.Mutex) {
+	switch serverType {
+	case SERVER_TYPE_EDGE_UP:
+		return s.EdgeUpServers, &s.mutex_up
+	case SERVER_TYPE_EDGE_DOWN:
+		return s.EdgeDownServers, &s.mutex_down
+	case SERVER_TYPE_ORIGIN:
+		return s.OriginServers, &s.mutex_origin
+	default:
+		return nil, nil
+	}
+}
+
+func (s *SrsServerManager) getTypeByName(name string) int {
+	switch name {
+	case STR_TYPE_EDGE_UP:
+		return SERVER_TYPE_EDGE_UP
+	case STR_TYPE_EDGE_DOWN:
+		return SERVER_TYPE_EDGE_DOWN
+	case STR_TYPE_ORIGIN:
+		return SERVER_TYPE_ORIGIN
+	default:
+		return -1
+	}
+}
+
+func (s *SrsServerManager) getServersByName(name string) (map[string]*SrsServer, *sync.Mutex) {
+	return s.getServersByType(s.getTypeByName(name))
+}
+
 func (s *SrsServerManager) AddSrsServer(svr *SrsServer) error {
+	servers, mutex := s.getServersByType(svr.ServerType)
+
+	if servers == nil {
+		glog.Warningln("error server type", svr.ServerType, svr)
+		return errors.New(fmt.Sprintln("err server type", svr.ServerType))
+	}
+
+	if _, ok := servers[svr.Host]; ok {
+		glog.Warningln("error server host already exists", svr.Host, svr)
+		return errors.New(fmt.Sprintln("err server type", svr.Host))
+	}
+
+	if err := s.db.InsertServer(svr); err != nil {
+		return err
+	}
+
+	mutex.Lock()
+	servers[svr.Host] = svr
+	mutex.Unlock()
+	glog.Infoln("add server", svr.Host, svr)
+	go svr.UpdateStatusLoop()
 	return nil
 }

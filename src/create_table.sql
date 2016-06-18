@@ -18,8 +18,8 @@ CREATE TABLE `room` (
 CREATE TABLE `srs_server` (
       `id` bigint(20) NOT NULL AUTO_INCREMENT,
       `host` varchar(255) NOT NULL,
-      `type` int NOT NULL,
-      `status` int NOT NULL,
+      `desc` varchar(255) DEFAULT '',
+      `type` int(11) NOT NULL,
+      `status` int(11) NOT NULL,
       PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
+) ENGINE=InnoDB DEFAULT CHARSET=utf8

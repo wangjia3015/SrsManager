@@ -12,6 +12,7 @@ const (
 	URL_PATH_ROOM      = "/room"
 	URL_PATH_SUMMARIES = "/summary"
 	URL_PATH_STREAMS   = "/stream"
+	URL_PATH_SERVER    = "/server"
 )
 
 func RestHandler(w http.ResponseWriter, req *http.Request) {
@@ -27,18 +28,6 @@ func InitRestHandler() error {
 	var err error
 	if srs_manager, err = NewSrsManager(db); err != nil {
 		glog.Errorln("NewSrsManager err", err)
-		//} else {
-		//	go func() {
-		//		for {
-		//			m := srs_manager.srs_server_manager.GetSrsServer(0)
-		//			b, err := json.Marshal(m)
-		//			fmt.Println(string(b), err)
-		//			m = srs_manager.srs_server_manager.GetSrsServer(1)
-		//			b, err = json.Marshal(m)
-		//			fmt.Println(string(b), err)
-		//			time.Sleep(10 * time.Second)
-		//		}
-		//	}()
 	}
 
 	return err
@@ -75,6 +64,8 @@ func (s *SrsManager) HttpHandler(w http.ResponseWriter, r *http.Request) {
 		s.room_manager.HttpHandler(w, r)
 	} else if strings.HasPrefix(url, URL_PATH_SUMMARIES) ||
 		strings.HasPrefix(url, URL_PATH_STREAMS) {
+		s.srs_server_manager.HttpHandler(w, r)
+	} else if strings.HasPrefix(url, URL_PATH_SERVER) {
 		s.srs_server_manager.HttpHandler(w, r)
 	}
 }

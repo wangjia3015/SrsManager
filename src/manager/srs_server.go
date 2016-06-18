@@ -30,12 +30,21 @@ type SrsServer struct {
 	ID         int64
 	Host       string
 	ServerType int
-	Status     int
-	Desc       string
+	Status     int // 暂时没用
+
+	Desc string
 
 	Loc     utils.Loc
 	Streams *StreamInfo
 	Summary *SummaryInfo
+}
+
+func NewSrsServer(host, desc string, serverType int, loc utils.Loc) *SrsServer {
+	return &SrsServer{
+		Host:       host,
+		ServerType: serverType,
+		Loc:        loc,
+	}
 }
 
 func (s *SrsServer) UpdateStatusLoop() {
