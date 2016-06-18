@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"srs_client"
 	"time"
 	"utils"
 
@@ -131,9 +130,9 @@ func (r *RoomManager) CreateRoom(req RoomCreateReq) (*Room, error) {
 
 func (r *RoomManager) tryKickOffClient(host string, clientID int) error {
 	var err error
-	var rsp srs_client.RspBase
+	var rsp utils.RspBase
 	for i := 0; i < 3; i++ {
-		if rsp, err = srs_client.KickOffClient(host, clientID); err != nil || rsp.Code != 0 {
+		if rsp, err = utils.KickOffClient(host, clientID); err != nil || rsp.Code != 0 {
 			glog.Warningln("KickOffClient ", host, clientID, err, rsp.Code)
 			continue
 		}

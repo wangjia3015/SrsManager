@@ -2,12 +2,9 @@ package manager
 
 import (
 	"fmt"
-	"srs_client"
-	"time"
-
-	"utils"
-
 	"github.com/golang/glog"
+	"time"
+	"utils"
 )
 
 const (
@@ -16,23 +13,23 @@ const (
 
 type StreamInfo struct {
 	Host       string
-	Streams    []srs_client.Stream
+	Streams    []utils.Stream
 	UpdateTime int64
 }
 
 type SummaryInfo struct {
 	Host       string
-	Data       srs_client.SummaryData
+	Data       utils.SummaryData
 	UpdateTime int64
 }
 
 type SrsServer struct {
-	ID      int64
-	Host    string
-	Type    int
-	Status  int // 暂时没用
+	ID     int64
+	Host   string
+	Type   int
+	Status int // 暂时没用
 
-	Desc    string
+	Desc string
 
 	Net     *utils.SubNet
 	Streams *StreamInfo
@@ -41,9 +38,9 @@ type SrsServer struct {
 
 func NewSrsServer(host, desc string, serverType int, net *utils.SubNet) *SrsServer {
 	return &SrsServer{
-		Host:       host,
+		Host: host,
 		Type: serverType,
-		Net:        net,
+		Net:  net,
 	}
 }
 
@@ -56,7 +53,7 @@ func (s *SrsServer) UpdateStatusLoop() {
 }
 
 func (s *SrsServer) UpdateServerStreams() {
-	if rsp, err := srs_client.GetStreams(s.Host); err != nil {
+	if rsp, err := utils.GetStreams(s.Host); err != nil {
 		glog.Warningln("UpdateServer GetStreams", s.Host, err)
 	} else if rsp.Code != 0 {
 		msg := fmt.Sprintln("GetStream server return err", s.Host, rsp.Code)
@@ -70,7 +67,7 @@ func (s *SrsServer) UpdateServerStreams() {
 }
 
 func (s *SrsServer) UpdateServerSummaries() {
-	if rsp, err := srs_client.GetSummaries(s.Host); err != nil {
+	if rsp, err := utils.GetSummaries(s.Host); err != nil {
 		glog.Warningln("UpdateServer GetSummaries", s.Host, err)
 	} else if rsp.Code != 0 {
 		msg := fmt.Sprintln("GetSummaries server return err", s.Host, rsp.Code)
