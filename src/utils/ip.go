@@ -1,16 +1,23 @@
-package main
+package utils
 
 import (
 	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
+	"manager"
 	"math"
 	"net"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
+)
+
+const (
+	CT   = 0
+	CMCC = 1
+	CNC  = 2
 )
 
 type IpDatabase struct {
@@ -27,10 +34,32 @@ func NewIpDatabase() (i *IpDatabase, err error) {
 	return
 }
 
+/*
+  dispatch algorithm
+*/
+func (i *IpDatabase) DisPatch(addr string, disType, count int) (servers []*manager.SrsServer) {
+	net, err := i.GetSubNet(addr)
+	if err != nil {
+		net = &SubNet{IspType: CT, Province: "beijing"}
+	}
+	p, ok := i.Provinces[net.Province]
+	if !ok {
+		p = i.Provinces["beijing"]
+	}
+	needIspType := net.IspType
+	if needIspType != CT && needIspType != CMCC && needIspType != CNC {
+		needIspType = CT
+	}
+	return p.dispatch(i, count, net.IspType, disType)
+}
+
 type Province struct {
 	OriginName string
-	Distances []*DistanceProvince
-	subnet *SubNet
+	Distances  []*DistanceProvince
+	subnet     *SubNet
+	UpEdge     map[int][]*manager.SrsServer
+	DownEdge   map[int][]*manager.SrsServer
+	Orign      map[int][]*manager.SrsServer
 }
 
 func NewProvince(name string, subnet *SubNet) (p *Province) {
@@ -38,6 +67,49 @@ func NewProvince(name string, subnet *SubNet) (p *Province) {
 	p.OriginName = name
 	p.Distances = make([]*DistanceProvince, 0)
 	p.subnet = subnet
+	p.UpEdge = make([]*manager.SrsServer, 0)
+	p.DownEdge = make([]*manager.SrsServer, 0)
+	p.Orign = make([]*manager.SrsServer, 0)
+
+	return
+}
+
+func (p *Province) dispatch(i *IpDatabase, count, ispType, disType int) (servers []*manager.SrsServer) {
+	servers = make([]*manager.SrsServer, 0)
+	execult := make([]*manager.SrsServer, 0)
+	for _, d := range p.Distances {
+		destname := d.DestName
+		dp, _ := i.Provinces[destname]
+		for _, e := range dp.getDispServers(ispType, disType) {
+			isExsit := false
+			for _, es := range execult {
+				if es.Host == e.Host {
+					isExsit = true
+					break
+				}
+			}
+			if !isExsit {
+				servers = append(servers, e)
+				execult = append(execult, e)
+			}
+			if len(servers) == count {
+				return
+			}
+		}
+	}
+
+	return
+}
+
+func (p *Province) getDispServers(needIspType, dispType int) (servers []*manager.SrsServer) {
+
+	if dispType == manager.SERVER_TYPE_EDGE_UP {
+		servers, _ = p.UpEdge[needIspType]
+	} else if dispType == manager.SERVER_TYPE_EDGE_DOWN {
+		servers, _ = p.DownEdge[needIspType]
+	} else if dispType == manager.SERVER_TYPE_ORIGIN {
+		servers, _ = p.Orign[needIspType]
+	}
 
 	return
 }
@@ -79,6 +151,7 @@ type SubNet struct {
 	Id        int
 	Ispname   string
 	SupperIsp string
+	IspType   int
 	Province  string
 	Latitude  float64
 	Longitude float64
