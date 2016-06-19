@@ -102,7 +102,6 @@ func (p *Province) dispatch(i *IpDatabase, count, ispType, disType int) (servers
 }
 
 func (p *Province) getDispServers(needIspType, dispType int) (servers []*manager.SrsServer) {
-
 	if dispType == manager.SERVER_TYPE_EDGE_UP {
 		servers, _ = p.UpEdge[needIspType]
 	} else if dispType == manager.SERVER_TYPE_EDGE_DOWN {
