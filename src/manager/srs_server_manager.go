@@ -3,14 +3,11 @@ package manager
 import (
 	"errors"
 	"fmt"
+	"github.com/golang/glog"
 	"net/http"
 	"strings"
 	"sync"
 	"utils"
-
-	"net"
-
-	"github.com/golang/glog"
 )
 
 const (
@@ -24,12 +21,11 @@ const (
 )
 
 type ServerManager struct {
-	db *DBSync
-
+	db            *DBSync
+	ipDatabase    *IpDatabase
 	UpServers     map[string]*SrsServer
 	DownServers   map[string]*SrsServer
 	OriginServers map[string]*SrsServer
-	SubNets       map[string]*utils.SubNet
 	upLock        sync.Mutex
 	downLock      sync.Mutex
 	originLock    sync.Mutex
@@ -42,7 +38,7 @@ func NewSrsServermanager(db *DBSync) (sm *ServerManager, err error) {
 		DownServers:   make(map[string]*SrsServer),
 		OriginServers: make(map[string]*SrsServer),
 	}
-	sm.SubNets, err = utils.LoadIpDatabase("isp.txt")
+	sm.ipDatabase, err = NewIpDatabase()
 
 	return
 }
@@ -138,20 +134,6 @@ type ReqCreateServer struct {
 	ServerType int    `json:"type"`
 }
 
-func (s *ServerManager) getSubnet(addr string) (subnet *utils.SubNet, err error) {
-	var (
-		net net.IPNet
-		ok  bool
-	)
-	if net, err = utils.GetSubNet(addr); err != nil {
-		return
-	}
-	if subnet, ok = s.SubNets[net.String()]; !ok {
-		err = fmt.Errorf("unavali ip:%v not exsit ip.txt", addr)
-	}
-	return
-}
-
 // server/dege  PUT
 func (s *ServerManager) serverHandler(w http.ResponseWriter, r *http.Request) {
 	var (
@@ -166,8 +148,7 @@ func (s *ServerManager) serverHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO
-	var subNet *utils.SubNet
-	server := NewSrsServer(req.Host, req.Desc, req.ServerType, subNet)
+	server := NewSrsServer(req.Host, req.Desc, req.ServerType)
 	if err = s.AddServer(server); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		glog.Warningln("AddsrsServer error", err, server)

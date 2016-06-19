@@ -32,13 +32,13 @@ type SrsServer struct {
 
 	Desc string
 
-	Net     *utils.SubNet
+	Net     *SubNet
 	Streams *StreamInfo
 	Summary *SummaryInfo
 }
 
-func (s *SrsServer)getLoad() float64{
-	return s.Summary.Data.Sys.Load1m*float64(s.Summary.Data.Sys.NetSend)
+func (s *SrsServer) getLoad() float64 {
+	return s.Summary.Data.Sys.Load1m * float64(s.Summary.Data.Sys.NetSend)
 }
 
 type SortSrsServers []*SrsServer
@@ -52,14 +52,13 @@ func (sp SortSrsServers) Swap(i, j int) {
 }
 
 func (sp SortSrsServers) Less(i, j int) bool {
-	return sp[i].getLoad()<sp[j].getLoad()
+	return sp[i].getLoad() < sp[j].getLoad()
 }
 
-func NewSrsServer(host, desc string, serverType int, net *utils.SubNet) *SrsServer {
+func NewSrsServer(host, desc string, serverType int) *SrsServer {
 	return &SrsServer{
 		Host: host,
 		Type: serverType,
-		Net:  net,
 	}
 }
 

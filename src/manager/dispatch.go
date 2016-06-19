@@ -1,11 +1,10 @@
-package utils
+package manager
 
 import (
 	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
-	"manager"
 	"math"
 	"net"
 	"os"
@@ -17,10 +16,10 @@ import (
 )
 
 const (
-	CT     = 0
-	CNC    = 1
-	CMCC   = 2
-	Unknow = 3
+	CT       = 0
+	CNC      = 1
+	CMCC     = 2
+	IspCount = 3
 )
 
 type IpDatabase struct {
@@ -40,7 +39,7 @@ func NewIpDatabase() (i *IpDatabase, err error) {
 /*
   dispatch algorithm
 */
-func (i *IpDatabase) DisPatch(addr string, disType, count int) (servers []*manager.SrsServer) {
+func (i *IpDatabase) DisPatch(addr string, disType, count int) (servers []*SrsServer) {
 	net, err := i.GetSubNet(addr)
 	if err != nil {
 		net = &SubNet{IspType: CT, Province: "beijing"}
@@ -56,7 +55,7 @@ func (i *IpDatabase) DisPatch(addr string, disType, count int) (servers []*manag
 	return p.dispatch(i, count, net.IspType, disType)
 }
 
-func (i *IpDatabase) AddServer(s *manager.SrsServer) {
+func (i *IpDatabase) AddServer(s *SrsServer) {
 	net, err := i.GetSubNet(s.Host)
 	if err != nil {
 		net = &SubNet{IspType: CT, Province: "beijing"}
@@ -73,12 +72,12 @@ type Province struct {
 	OriginName string
 	Distances  []*DistanceProvince
 	subnet     *SubNet
-	UpEdge     map[int][]*manager.SrsServer
-	uplock     [Unknow]sync.RWMutex
-	DownEdge   map[int][]*manager.SrsServer
-	downlock   [Unknow]sync.RWMutex
-	Orign      map[int][]*manager.SrsServer
-	orginlock  [Unknow]sync.RWMutex
+	UpEdge     [IspCount][]*SrsServer
+	uplock     [IspCount]sync.RWMutex
+	DownEdge   [IspCount][]*SrsServer
+	downlock   [IspCount]sync.RWMutex
+	Orign      [IspCount][]*SrsServer
+	orginlock  [IspCount]sync.RWMutex
 }
 
 func NewProvince(name string, subnet *SubNet) (p *Province) {
@@ -86,45 +85,42 @@ func NewProvince(name string, subnet *SubNet) (p *Province) {
 	p.OriginName = name
 	p.Distances = make([]*DistanceProvince, 0)
 	p.subnet = subnet
-	p.UpEdge = make(map[int][]*manager.SrsServer)
-	p.DownEdge = make(map[int][]*manager.SrsServer)
-	p.Orign = make(map[int][]*manager.SrsServer)
-	for i := CT; i <= Unknow; i++ {
-		p.UpEdge[i] = make([]*manager.SrsServer, 0)
-		p.DownEdge[i] = make([]*manager.SrsServer, 0)
-		p.Orign = make([]*manager.SrsServer, 0)
+	for i := 0; i < IspCount; i++ {
+		p.UpEdge[i] = make([]*SrsServer, 0)
+		p.DownEdge[i] = make([]*SrsServer, 0)
+		p.Orign[i] = make([]*SrsServer, 0)
 	}
 
 	return
 }
 
-func (p *Province) AddServer(s *manager.SrsServer) {
+func (p *Province) AddServer(s *SrsServer) {
 	servers, lock := p.getDispServers(s.Net.IspType, s.Type)
 	lock.Lock()
 	servers = append(servers, s)
 	lock.Unlock()
 	lock.RLock()
-	sort.Sort(manager.SortSrsServers(servers))
+	sort.Sort(SortSrsServers(servers))
 	lock.RUnlock()
 }
 
 func (p *Province) sortByLoad() {
-	for i := CT; i <= CMCC; i++ {
+	for i := 0; i <= IspCount; i++ {
 		p.uplock[i].RLock()
-		sort.Sort(manager.SortSrsServers(p.UpEdge[i]))
+		sort.Sort(SortSrsServers(p.UpEdge[i]))
 		p.uplock[i].RUnlock()
 		p.downlock[i].RLock()
-		sort.Sort(manager.SortSrsServers(p.DownEdge[i]))
+		sort.Sort(SortSrsServers(p.DownEdge[i]))
 		p.downlock[i].RUnlock()
 		p.orginlock[i].RLock()
-		sort.Sort(manager.SortSrsServers(p.Orign[i]))
+		sort.Sort(SortSrsServers(p.Orign[i]))
 		p.orginlock[i].RUnlock()
 	}
 }
 
-func (p *Province) dispatch(i *IpDatabase, count, ispType, disType int) (servers []*manager.SrsServer) {
-	servers = make([]*manager.SrsServer, 0)
-	execult := make([]*manager.SrsServer, 0)
+func (p *Province) dispatch(i *IpDatabase, count, ispType, disType int) (servers []*SrsServer) {
+	servers = make([]*SrsServer, 0)
+	execult := make([]*SrsServer, 0)
 	for _, d := range p.Distances {
 		destname := d.DestName
 		dp, _ := i.Provinces[destname]
@@ -153,16 +149,16 @@ func (p *Province) dispatch(i *IpDatabase, count, ispType, disType int) (servers
 	return
 }
 
-func (p *Province) getDispServers(needIspType, dispType int) (servers []*manager.SrsServer,
+func (p *Province) getDispServers(needIspType, dispType int) (servers []*SrsServer,
 	lock *sync.RWMutex) {
-	if dispType == manager.SERVER_TYPE_EDGE_UP {
-		servers, _ = p.UpEdge[needIspType]
+	if dispType == SERVER_TYPE_EDGE_UP {
+		servers = p.UpEdge[needIspType]
 		lock = &p.uplock[needIspType]
-	} else if dispType == manager.SERVER_TYPE_EDGE_DOWN {
-		servers, _ = p.DownEdge[needIspType]
+	} else if dispType == SERVER_TYPE_EDGE_DOWN {
+		servers = p.DownEdge[needIspType]
 		lock = &p.downlock[needIspType]
-	} else if dispType == manager.SERVER_TYPE_ORIGIN {
-		servers, _ = p.Orign[needIspType]
+	} else if dispType == SERVER_TYPE_ORIGIN {
+		servers = p.Orign[needIspType]
 		lock = &p.orginlock[needIspType]
 	}
 
