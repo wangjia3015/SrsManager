@@ -168,7 +168,7 @@ func (s *ServerManager) serverHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO
 	var subNet *utils.SubNet
 	server := NewSrsServer(req.Host, req.Desc, req.ServerType, subNet)
-	if err = s.AddSrsServer(server); err != nil {
+	if err = s.AddServer(server); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		glog.Warningln("AddsrsServer error", err, server)
 		return
@@ -179,7 +179,7 @@ func (s *ServerManager) serverHandler(w http.ResponseWriter, r *http.Request) {
 	glog.Infoln("AddSrsServer done", server)
 }
 
-func (s *ServerManager) AddSrsServer(svr *SrsServer) error {
+func (s *ServerManager) AddServer(svr *SrsServer) error {
 	servers, mutex := s.getServersByType(svr.Type)
 
 	if servers == nil {

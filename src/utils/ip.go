@@ -12,12 +12,15 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 )
 
 const (
-	CT   = 0
-	CMCC = 1
-	CNC  = 2
+	CT     = 0
+	CNC    = 1
+	CMCC   = 2
+	Unknow = 3
 )
 
 type IpDatabase struct {
@@ -53,13 +56,29 @@ func (i *IpDatabase) DisPatch(addr string, disType, count int) (servers []*manag
 	return p.dispatch(i, count, net.IspType, disType)
 }
 
+func (i *IpDatabase) AddServer(s *manager.SrsServer) {
+	net, err := i.GetSubNet(s.Host)
+	if err != nil {
+		net = &SubNet{IspType: CT, Province: "beijing"}
+	}
+	p, ok := i.Provinces[net.Province]
+	if !ok {
+		p = i.Provinces["beijing"]
+	}
+	s.Net = p.subnet
+	p.AddServer(s)
+}
+
 type Province struct {
 	OriginName string
 	Distances  []*DistanceProvince
 	subnet     *SubNet
 	UpEdge     map[int][]*manager.SrsServer
+	uplock     [Unknow]sync.RWMutex
 	DownEdge   map[int][]*manager.SrsServer
+	downlock   [Unknow]sync.RWMutex
 	Orign      map[int][]*manager.SrsServer
+	orginlock  [Unknow]sync.RWMutex
 }
 
 func NewProvince(name string, subnet *SubNet) (p *Province) {
@@ -67,11 +86,40 @@ func NewProvince(name string, subnet *SubNet) (p *Province) {
 	p.OriginName = name
 	p.Distances = make([]*DistanceProvince, 0)
 	p.subnet = subnet
-	p.UpEdge = make([]*manager.SrsServer, 0)
-	p.DownEdge = make([]*manager.SrsServer, 0)
-	p.Orign = make([]*manager.SrsServer, 0)
+	p.UpEdge = make(map[int][]*manager.SrsServer)
+	p.DownEdge = make(map[int][]*manager.SrsServer)
+	p.Orign = make(map[int][]*manager.SrsServer)
+	for i := CT; i <= Unknow; i++ {
+		p.UpEdge[i] = make([]*manager.SrsServer, 0)
+		p.DownEdge[i] = make([]*manager.SrsServer, 0)
+		p.Orign = make([]*manager.SrsServer, 0)
+	}
 
 	return
+}
+
+func (p *Province) AddServer(s *manager.SrsServer) {
+	servers, lock := p.getDispServers(s.Net.IspType, s.Type)
+	lock.Lock()
+	servers = append(servers, s)
+	lock.Unlock()
+	lock.RLock()
+	sort.Sort(manager.SortSrsServers(servers))
+	lock.RUnlock()
+}
+
+func (p *Province) sortByLoad() {
+	for i := CT; i <= CMCC; i++ {
+		p.uplock[i].RLock()
+		sort.Sort(manager.SortSrsServers(p.UpEdge[i]))
+		p.uplock[i].RUnlock()
+		p.downlock[i].RLock()
+		sort.Sort(manager.SortSrsServers(p.DownEdge[i]))
+		p.downlock[i].RUnlock()
+		p.orginlock[i].RLock()
+		sort.Sort(manager.SortSrsServers(p.Orign[i]))
+		p.orginlock[i].RUnlock()
+	}
 }
 
 func (p *Province) dispatch(i *IpDatabase, count, ispType, disType int) (servers []*manager.SrsServer) {
@@ -80,7 +128,9 @@ func (p *Province) dispatch(i *IpDatabase, count, ispType, disType int) (servers
 	for _, d := range p.Distances {
 		destname := d.DestName
 		dp, _ := i.Provinces[destname]
-		for _, e := range dp.getDispServers(ispType, disType) {
+		dispServers, lock := dp.getDispServers(ispType, disType)
+		lock.RLock()
+		for _, e := range dispServers {
 			isExsit := false
 			for _, es := range execult {
 				if es.Host == e.Host {
@@ -93,21 +143,27 @@ func (p *Province) dispatch(i *IpDatabase, count, ispType, disType int) (servers
 				execult = append(execult, e)
 			}
 			if len(servers) == count {
+				lock.RUnlock()
 				return
 			}
 		}
+		lock.RUnlock()
 	}
 
 	return
 }
 
-func (p *Province) getDispServers(needIspType, dispType int) (servers []*manager.SrsServer) {
+func (p *Province) getDispServers(needIspType, dispType int) (servers []*manager.SrsServer,
+	lock *sync.RWMutex) {
 	if dispType == manager.SERVER_TYPE_EDGE_UP {
 		servers, _ = p.UpEdge[needIspType]
+		lock = &p.uplock[needIspType]
 	} else if dispType == manager.SERVER_TYPE_EDGE_DOWN {
 		servers, _ = p.DownEdge[needIspType]
+		lock = &p.downlock[needIspType]
 	} else if dispType == manager.SERVER_TYPE_ORIGIN {
 		servers, _ = p.Orign[needIspType]
+		lock = &p.orginlock[needIspType]
 	}
 
 	return
@@ -170,6 +226,14 @@ func parseIpDatabase(line string) (s *SubNet, err error) {
 	}
 	s.SupperIsp = recordArr[2]
 	s.Ispname = recordArr[3]
+	switch s.SupperIsp {
+	case "cnc":
+		s.IspType = CNC
+	case "cmcc":
+		s.IspType = CMCC
+	case "ct":
+		s.IspType = CT
+	}
 	arr := strings.Split(s.Ispname, "_")
 	if len(arr) == 2 {
 		s.Province = arr[0]
@@ -247,11 +311,14 @@ func (i *IpDatabase) initProvince() {
 			}
 		}
 	}
+	go i.sort()
+}
 
+func (i *IpDatabase) sort() {
 	for _, p := range i.Provinces {
 		sort.Sort((SortDistanceProvince)(p.Distances))
+		time.Sleep(time.Minute)
 	}
-
 }
 
 func main() {
