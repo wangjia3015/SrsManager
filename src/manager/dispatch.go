@@ -29,7 +29,7 @@ type IpDatabase struct {
 
 func NewIpDatabase() (i *IpDatabase, err error) {
 	i = &IpDatabase{SubNets: make(map[string]*SubNet), Provinces: make(map[string]*Province)}
-	if err = i.LoadIpDatabase("./isp.txt"); err != nil {
+	if err = i.LoadIpDatabase("../utils/isp.txt"); err != nil {
 		return
 	}
 	i.initProvince()
