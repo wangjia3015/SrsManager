@@ -69,21 +69,21 @@ func (i *IpDatabase) AddServer(s *SrsServer) {
 }
 
 type Province struct {
-	OriginName string
-	Distances  []*DistanceProvince
-	subnet     *SubNet
-	UpEdge     [IspCount][]*SrsServer
-	uplock     [IspCount]sync.RWMutex
-	DownEdge   [IspCount][]*SrsServer
-	downlock   [IspCount]sync.RWMutex
-	Orign      [IspCount][]*SrsServer
-	orginlock  [IspCount]sync.RWMutex
+	SrcName   string
+	Target    []*TargetProvinceDesc
+	subnet    *SubNet
+	UpEdge    [IspCount][]*SrsServer
+	uplock    [IspCount]sync.RWMutex
+	DownEdge  [IspCount][]*SrsServer
+	downlock  [IspCount]sync.RWMutex
+	Orign     [IspCount][]*SrsServer
+	orginlock [IspCount]sync.RWMutex
 }
 
 func NewProvince(name string, subnet *SubNet) (p *Province) {
 	p = new(Province)
-	p.OriginName = name
-	p.Distances = make([]*DistanceProvince, 0)
+	p.SrcName = name
+	p.Target = make([]*TargetProvinceDesc, 0)
 	p.subnet = subnet
 	for i := 0; i < IspCount; i++ {
 		p.UpEdge[i] = make([]*SrsServer, 0)
@@ -121,8 +121,8 @@ func (p *Province) sortByLoad() {
 func (p *Province) dispatch(i *IpDatabase, count, ispType, disType int) (servers []*SrsServer) {
 	servers = make([]*SrsServer, 0)
 	execult := make([]*SrsServer, 0)
-	for _, d := range p.Distances {
-		destname := d.DestName
+	for _, d := range p.Target {
+		destname := d.TargetName
 		dp, _ := i.Provinces[destname]
 		dispServers, lock := dp.getDispServers(ispType, disType)
 		lock.RLock()
@@ -165,22 +165,22 @@ func (p *Province) getDispServers(needIspType, dispType int) (servers []*SrsServ
 	return
 }
 
-type DistanceProvince struct {
-	DestName string
-	Distance float64
+type TargetProvinceDesc struct {
+	TargetName string
+	Distance   float64
 }
 
-type SortDistanceProvince []*DistanceProvince
+type SortTargetProvince []*TargetProvinceDesc
 
-func (sp SortDistanceProvince) Len() int {
+func (sp SortTargetProvince) Len() int {
 	return len(sp)
 }
 
-func (sp SortDistanceProvince) Swap(i, j int) {
+func (sp SortTargetProvince) Swap(i, j int) {
 	sp[i], sp[j] = sp[j], sp[i]
 }
 
-func (sp SortDistanceProvince) Less(i, j int) bool {
+func (sp SortTargetProvince) Less(i, j int) bool {
 	return sp[i].Distance < sp[j].Distance
 }
 
@@ -301,9 +301,9 @@ func (i *IpDatabase) initProvince() {
 		srcNet := p.subnet
 		for name, pp := range i.Provinces {
 			destNet := pp.subnet
-			d := &DistanceProvince{DestName: name, Distance: EarthDistance(srcNet.Latitude,
+			d := &TargetProvinceDesc{TargetName: name, Distance: EarthDistance(srcNet.Latitude,
 				srcNet.Longitude, destNet.Latitude, destNet.Longitude)}
-			p.Distances = append(p.Distances, d)
+			p.Target = append(p.Target, d)
 			if math.IsNaN(d.Distance) {
 				d.Distance = 0
 			}
@@ -314,7 +314,7 @@ func (i *IpDatabase) initProvince() {
 
 func (i *IpDatabase) sort() {
 	for _, p := range i.Provinces {
-		sort.Sort((SortDistanceProvince)(p.Distances))
+		sort.Sort((SortTargetProvince)(p.Target))
 		time.Sleep(time.Minute)
 	}
 }
