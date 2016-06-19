@@ -233,6 +233,8 @@ func parseIpDatabase(line string) (s *SubNet, err error) {
 		s.IspType = CMCC
 	case "ct":
 		s.IspType = CT
+	default:
+		s.IspType = CT
 	}
 	arr := strings.Split(s.Ispname, "_")
 	if len(arr) == 2 {
