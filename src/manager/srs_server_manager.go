@@ -104,6 +104,16 @@ func (s *ServerManager) HttpHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type StreamTotalInfo struct {
+	Name    string
+	AppName string
+
+	ClientTotal    int
+	SendBytesTotal int64
+	RecvBytesTotal int64
+	KbpsTotal      utils.KbpsInfo
+}
+
 // /stream/edge
 func (s *ServerManager) streamHandler(w http.ResponseWriter, r *http.Request) {
 	args := GetUrlParams(r.URL.Path, URL_PATH_STREAMS)
@@ -129,8 +139,28 @@ func (s *ServerManager) streamHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	mutex.Unlock()
 
-	if err := utils.WriteObjectResponse(w, streams); err != nil {
-		glog.Warningln("writeRespons err", streams)
+	var result interface{}
+	result = streams
+	if len(args) > 2 {
+		var total StreamTotalInfo
+		total.AppName = args[1]
+		total.Name = args[2]
+		for _, v := range streams {
+			for _, i := range v.Streams {
+				if i.Name == total.Name && i.AppName == total.AppName {
+					total.ClientTotal += i.ClientNum
+					total.SendBytesTotal += i.SendBytes
+					total.RecvBytesTotal += i.RecvBytes
+					total.KbpsTotal.Recv30s += i.Kbps.Recv30s
+					total.KbpsTotal.Send30s += i.Kbps.Send30s
+				}
+			}
+		}
+		result = &total
+	}
+
+	if err := utils.WriteObjectResponse(w, result); err != nil {
+		glog.Warningln("writeRespons err", result)
 	}
 }
 
