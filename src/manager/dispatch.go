@@ -35,6 +35,7 @@ func NewIpDatabase() (i *IpDatabase, err error) {
 		return
 	}
 	i.ProvinceEncode = map[string]int{
+		"beijing":      0,
 		"guangdong":    1,
 		"yunnan":       2,
 		"shanghai":     3,
@@ -65,8 +66,7 @@ func NewIpDatabase() (i *IpDatabase, err error) {
 		"hunan":        28,
 		"shandong":     29,
 		"jiangxi":      30,
-		"beijing":      31,
-		"taiwan":	32,
+		"taiwan":       31,
 	}
 	i.initProvince()
 	return
@@ -81,7 +81,7 @@ func (i *IpDatabase) DisPatch(addr string, disType, count int) (servers []*SrsSe
 		net = &SubNet{IspType: CT, Province: "beijing", Id: BeijingId}
 	}
 	var p *Province
-	if net.Id < 1 || net.Id > 31 {
+	if net.Id < 0 || net.Id > 31 {
 		p = i.Provinces[BeijingId]
 	} else {
 		p = i.Provinces[net.Id]

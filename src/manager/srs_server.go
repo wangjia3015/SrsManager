@@ -26,12 +26,12 @@ type SummaryInfo struct {
 }
 
 type SrsServer struct {
-	ID     int64
-	Host   string
-	Type   int
-	Status int // 暂时没用
-	Desc string
-	Net *SubNet
+	ID          int64
+	Host        string
+	Type        int
+	Status      int // 暂时没用
+	Desc        string
+	Net         *SubNet
 	streamsLock sync.RWMutex
 	summaryLock sync.RWMutex
 	streams     *StreamInfo
