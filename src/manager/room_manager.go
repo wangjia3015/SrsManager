@@ -24,7 +24,9 @@ func (r *RoomManager) HttpHandler(w http.ResponseWriter, req *http.Request) {
 	var err error
 
 	args := GetUrlParams(req.URL.Path, URL_PATH_ROOM)
+	argsLen := len(args)
 
+	remoteAddr := req.Header.Get(HTTP_HEADER_CDN_IP)
 	switch req.Method {
 	case HTTP_POST:
 		var (
@@ -34,7 +36,7 @@ func (r *RoomManager) HttpHandler(w http.ResponseWriter, req *http.Request) {
 		)
 		err = utils.ReadAndUnmarshalObject(req.Body, &request)
 		if err == nil {
-			request.RealAddr = req.Header.Get(HTTP_HEADER_CDN_IP)
+			request.RealAddr = remoteAddr
 			room, err = r.CreateRoom(request)
 		}
 		if err == nil {
@@ -46,7 +48,7 @@ func (r *RoomManager) HttpHandler(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	case HTTP_DELETE:
-		if len(args) != 1 {
+		if argsLen != 1 {
 			w.WriteHeader(http.StatusBadRequest)
 			glog.Warningln("KickoffRoom invalid args count", args)
 			return
@@ -54,6 +56,18 @@ func (r *RoomManager) HttpHandler(w http.ResponseWriter, req *http.Request) {
 		if err = r.KickoffRoom(args[0]); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			glog.Warningln("KickoffRoom", err)
+			return
+		}
+	case HTTP_GET:
+		if argsLen != 1 {
+			w.WriteHeader(http.StatusBadRequest)
+			glog.Warningln("KickoffRoom invalid args count", args)
+			return
+		}
+		rsp := r.GetRoom(args[0], remoteAddr)
+		if err = utils.WriteObjectResponse(w, rsp); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			glog.Warningln("GET err", req.URL.Path, rsp, err)
 			return
 		}
 	}
@@ -99,6 +113,11 @@ type Room struct {
 	LastUpdateTime int64
 }
 
+type ReqRoomResponse struct {
+	StreamName string
+	Servers    []string
+}
+
 func GetToken(stream string, expiration int64) string {
 	str := fmt.Sprintf("%s_%d_%s", stream, expiration, SALT)
 	str = utils.GetMD5String(str)
@@ -125,6 +144,13 @@ func (r *RoomManager) CreateRoom(req RoomCreateReq) (*Room, error) {
 	}
 	glog.Infoln("CreateRoom", room)
 	return room, nil
+}
+
+func (r *RoomManager) GetRoom(streamName, remoteAddr string) ReqRoomResponse {
+	var rsp ReqRoomResponse
+	rsp.StreamName = streamName
+	rsp.Servers = r.serverManager.GetServers(remoteAddr, SERVER_TYPE_EDGE_DOWN)
+	return rsp
 }
 
 func (r *RoomManager) tryKickOffClient(host string, clientID int) error {
