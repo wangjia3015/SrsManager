@@ -47,7 +47,6 @@ type SrsManager struct {
 
 func NewSrsManager(config *utils.Config, dbSync *DBSync) (*SrsManager, error) {
 	event := &EventManager{db: dbSync}
-	room := &RoomManager{db: dbSync}
 	server, err := NewSrsServermanager(dbSync)
 	if err != nil {
 		return nil, fmt.Errorf("Load ip.txt failed:%v", err)
@@ -56,6 +55,8 @@ func NewSrsManager(config *utils.Config, dbSync *DBSync) (*SrsManager, error) {
 	if err = server.LoadServers(); err != nil {
 		return nil, err
 	}
+
+	room := &RoomManager{db: dbSync, serverManager: server}
 	return &SrsManager{
 		config:           config,
 		db:               dbSync,

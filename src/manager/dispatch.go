@@ -96,7 +96,12 @@ func (i *IpDatabase) DisPatch(addr string, disType, count int) (servers []*SrsSe
 
 func (i *IpDatabase) AddServer(s *SrsServer) error {
 	var err error
-	if s.Net, err = i.GetSubNet(s.PublicAddr); err != nil {
+	var addr string
+	if addr, err = s.GetPublicAddr(); err != nil {
+		return err
+	}
+
+	if s.Net, err = i.GetSubNet(addr); err != nil {
 		return err
 	}
 	if s.Net.Id < 1 || s.Net.Id > 32 {

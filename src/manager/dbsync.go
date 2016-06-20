@@ -174,7 +174,7 @@ func (d *DBSync) LoadSrsServers() ([]*SrsServer, error) {
 		if err = rows.Scan(
 			&srs.ID,
 			&srs.Host,
-			&srs.PublicAddr,
+			&srs.PublicHost,
 			&srs.Desc,
 			&srs.Type,
 			&srs.Status); err != nil {
@@ -188,6 +188,6 @@ func (d *DBSync) LoadSrsServers() ([]*SrsServer, error) {
 func (d *DBSync) InsertServer(svr *SrsServer) error {
 	sqlstr := "insert into " + TABLE_NAME_SRS_SERVER + "(`host`, `desc`, `type`, `addr`, `status`) values(?, ?, ?, ?, ?)"
 	var err error
-	svr.ID, err = d.insert(sqlstr, svr.Host, svr.Desc, svr.Type, svr.PublicAddr, svr.Status)
+	svr.ID, err = d.insert(sqlstr, svr.Host, svr.Desc, svr.Type, svr.PublicHost, svr.Status)
 	return err
 }

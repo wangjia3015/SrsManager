@@ -51,13 +51,26 @@ func (s *ServerManager) initServers() error {
 	var err error
 	for i := 0; i < SERVER_TYPE_COUNT; i++ {
 		for _, svr := range s.servers[i] {
-			if svr.Net, err = s.ipDatabase.GetSubNet(svr.PublicAddr); err != nil {
+			var addr string
+			if addr, err = svr.GetPublicAddr(); err != nil {
+				return err
+			}
+			if svr.Net, err = s.ipDatabase.GetSubNet(addr); err != nil {
 				return err
 			}
 		}
-
 	}
 	return nil
+}
+
+func (s *ServerManager) GetServers(addr string, disType int) []string {
+	count := 3
+	servers := s.ipDatabase.DisPatch(addr, disType, count)
+	result := []string{}
+	for _, svr := range servers {
+		result = append(result, svr.PublicHost)
+	}
+	return result
 }
 
 func (s *ServerManager) LoadServers() error {

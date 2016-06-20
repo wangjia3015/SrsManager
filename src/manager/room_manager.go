@@ -15,6 +15,8 @@ const (
 	HTTP_GET    = "GET"
 	HTTP_PUT    = "PUT"
 	HTTP_DELETE = "DELETE"
+
+	HTTP_HEADER_CDN_IP = "X-REAL-IP"
 )
 
 func (r *RoomManager) HttpHandler(w http.ResponseWriter, req *http.Request) {
@@ -32,6 +34,7 @@ func (r *RoomManager) HttpHandler(w http.ResponseWriter, req *http.Request) {
 		)
 		err = utils.ReadAndUnmarshalObject(req.Body, &request)
 		if err == nil {
+			request.RealAddr = req.Header.Get(HTTP_HEADER_CDN_IP)
 			room, err = r.CreateRoom(request)
 		}
 		if err == nil {
@@ -57,7 +60,8 @@ func (r *RoomManager) HttpHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 type RoomManager struct {
-	db *DBSync
+	db            *DBSync
+	serverManager *ServerManager
 }
 
 const (
@@ -65,8 +69,9 @@ const (
 )
 
 type RoomCreateReq struct {
-	Name string
-	Desc string
+	Name     string
+	Desc     string
+	RealAddr string
 }
 
 const (
@@ -85,6 +90,7 @@ type Room struct {
 	Expiration int64  // 过期时间
 	Token      string // 不保存
 	Status     int    // 判断状态
+	Addrs      []string
 
 	PublishClientId int    // 推送端的ID与PublishHost 一起作为KICKOFF回调的参数
 	PublishHost     string // 边缘节点的IP
@@ -110,6 +116,8 @@ func (r *RoomManager) CreateRoom(req RoomCreateReq) (*Room, error) {
 	room.Expiration = time.Now().Add(time.Hour * 24).Unix()
 	room.Token = GetToken(room.StreamName, room.Expiration)
 	room.Status = ROOM_CREATE
+
+	room.Addrs = r.serverManager.GetServers(req.RealAddr, SERVER_TYPE_EDGE_UP)
 
 	// insert to db
 	if err := r.db.InsertRoom(room); err != nil {
