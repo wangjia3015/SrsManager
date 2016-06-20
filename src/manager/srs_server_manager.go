@@ -41,8 +41,22 @@ func NewSrsServermanager(db *DBSync) (sm *ServerManager, err error) {
 		locks:   make([]sync.Mutex, SERVER_TYPE_COUNT),
 	}
 	sm.ipDatabase, err = NewIpDatabase()
+	err = sm.initServers()
 
 	return
+}
+
+func (s *ServerManager) initServers() error {
+	var err error
+	for i := 0; i < SERVER_TYPE_COUNT; i++ {
+		for _, svr := range s.servers[i] {
+			if svr.Net, err = s.ipDatabase.GetSubNet(svr.PublicAddr); err != nil {
+				return err
+			}
+		}
+
+	}
+	return nil
 }
 
 func (s *ServerManager) LoadServers() error {
@@ -133,6 +147,7 @@ func (s *ServerManager) summaryHandler(w http.ResponseWriter, r *http.Request) {
 type ReqCreateServer struct {
 	Host       string `json:"host"`
 	Desc       string `json:"desc"`
+	PublicAddr string `json:"address"`
 	ServerType int    `json:"type"`
 }
 
@@ -149,8 +164,7 @@ func (s *ServerManager) serverHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO
-	server := NewSrsServer(req.Host, req.Desc, req.ServerType)
+	server := NewSrsServer(req.Host, req.Desc, req.PublicAddr, req.ServerType)
 	if err = s.AddServer(server); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		glog.Warningln("AddsrsServer error", err, server)
@@ -173,6 +187,11 @@ func (s *ServerManager) AddServer(svr *SrsServer) error {
 	if _, ok := servers[svr.Host]; ok {
 		glog.Warningln("error server host already exists", svr.Host, svr)
 		return errors.New(fmt.Sprintln("err server type", svr.Host))
+	}
+
+	var err error
+	if svr.Net, err = s.ipDatabase.GetSubNet(svr.PublicAddr); err != nil {
+		return err
 	}
 
 	if err := s.db.InsertServer(svr); err != nil {

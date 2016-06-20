@@ -26,12 +26,14 @@ type SummaryInfo struct {
 }
 
 type SrsServer struct {
-	ID          int64
-	Host        string
-	Type        int
-	Status      int // 暂时没用
-	Desc        string
-	Net         *SubNet
+	ID         int64
+	Host       string
+	PublicAddr string
+	Type       int
+	Status     int // 暂时没用
+	Desc       string
+	Net        *SubNet
+
 	streamsLock sync.RWMutex
 	summaryLock sync.RWMutex
 	streams     *StreamInfo
@@ -68,10 +70,11 @@ func (sp SortSrsServers) Less(i, j int) bool {
 	return sp[i].getLoad() < sp[j].getLoad()
 }
 
-func NewSrsServer(host, desc string, serverType int) *SrsServer {
+func NewSrsServer(host, desc, addr string, serverType int) *SrsServer {
 	return &SrsServer{
-		Host: host,
-		Type: serverType,
+		Host:       host,
+		Type:       serverType,
+		PublicAddr: addr,
 	}
 }
 
