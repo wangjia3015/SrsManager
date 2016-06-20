@@ -11,7 +11,7 @@ func TestIp(t *testing.T) {
 		t.Log(err)
 		t.FailNow()
 	}
-	subnet, err := i.GetSubNet("111.204.243.7")
+	subnet, err := i.GetSubNet("36.110.128.35")
 	if err != nil {
 		t.Log(err)
 		t.FailNow()
