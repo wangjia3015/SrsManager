@@ -66,6 +66,7 @@ func NewIpDatabase() (i *IpDatabase, err error) {
 		"shandong":     29,
 		"jiangxi":      30,
 		"beijing":      31,
+		"taiwan":	32,
 	}
 	i.initProvince()
 	return
@@ -99,7 +100,7 @@ func (i *IpDatabase) AddServer(s *SrsServer) {
 		net = &SubNet{IspType: CT, Province: "beijing", Id: BeijingId}
 	}
 	var p *Province
-	if net.Id < 1 || net.Id > 31 {
+	if net.Id < 1 || net.Id > 32 {
 		p = i.Provinces[BeijingId]
 	} else {
 		p = i.Provinces[net.Id]
