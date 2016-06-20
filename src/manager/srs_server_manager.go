@@ -3,11 +3,12 @@ package manager
 import (
 	"errors"
 	"fmt"
-	"github.com/golang/glog"
 	"net/http"
 	"strings"
 	"sync"
 	"utils"
+
+	"github.com/golang/glog"
 )
 
 const (
@@ -16,8 +17,8 @@ const (
 	SERVER_TYPE_ORIGIN
 	SERVER_TYPE_COUNT
 
-	STR_TYPE_EDGE_UP   = "edgeup"
-	STR_TYPE_EDGE_DOWN = "edgedown"
+	STR_TYPE_EDGE_UP   = "up"
+	STR_TYPE_EDGE_DOWN = "down"
 	STR_TYPE_ORIGIN    = "origin"
 )
 
@@ -190,11 +191,11 @@ func (s *ServerManager) AddServer(svr *SrsServer) error {
 	}
 
 	var err error
-	if svr.Net, err = s.ipDatabase.GetSubNet(svr.PublicAddr); err != nil {
+	if err = s.ipDatabase.AddServer(svr); err != nil {
 		return err
 	}
 
-	if err := s.db.InsertServer(svr); err != nil {
+	if err = s.db.InsertServer(svr); err != nil {
 		return err
 	}
 
