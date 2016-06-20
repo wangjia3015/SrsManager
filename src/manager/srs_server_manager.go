@@ -14,6 +14,7 @@ const (
 	SERVER_TYPE_EDGE_UP = iota
 	SERVER_TYPE_EDGE_DOWN
 	SERVER_TYPE_ORIGIN
+	SERVER_TYPE_COUNT
 
 	STR_TYPE_EDGE_UP   = "edgeup"
 	STR_TYPE_EDGE_DOWN = "edgedown"
@@ -21,22 +22,23 @@ const (
 )
 
 type ServerManager struct {
-	db            *DBSync
-	ipDatabase    *IpDatabase
-	UpServers     map[string]*SrsServer
-	DownServers   map[string]*SrsServer
-	OriginServers map[string]*SrsServer
-	upLock        sync.Mutex
-	downLock      sync.Mutex
-	originLock    sync.Mutex
+	db         *DBSync
+	ipDatabase *IpDatabase
+	servers    []map[string]*SrsServer
+	locks      []sync.Mutex
 }
 
 func NewSrsServermanager(db *DBSync) (sm *ServerManager, err error) {
+
+	servers := make([]map[string]*SrsServer, SERVER_TYPE_COUNT)
+	for i := 0; i < SERVER_TYPE_COUNT; i++ {
+		servers[i] = make(map[string]*SrsServer)
+	}
+
 	sm = &ServerManager{
-		db:            db,
-		UpServers:     make(map[string]*SrsServer),
-		DownServers:   make(map[string]*SrsServer),
-		OriginServers: make(map[string]*SrsServer),
+		db:      db,
+		servers: servers,
+		locks:   make([]sync.Mutex, SERVER_TYPE_COUNT),
 	}
 	sm.ipDatabase, err = NewIpDatabase()
 
@@ -187,16 +189,10 @@ func (s *ServerManager) AddServer(svr *SrsServer) error {
 
 func (s *ServerManager) getServersByType(serverType int) (map[string]*SrsServer,
 	*sync.Mutex) {
-	switch serverType {
-	case SERVER_TYPE_EDGE_UP:
-		return s.UpServers, &s.upLock
-	case SERVER_TYPE_EDGE_DOWN:
-		return s.DownServers, &s.downLock
-	case SERVER_TYPE_ORIGIN:
-		return s.OriginServers, &s.originLock
-	default:
-		return nil, nil
+	if serverType > -1 && serverType < SERVER_TYPE_COUNT {
+		return s.servers[serverType], &s.locks[serverType]
 	}
+	return nil, nil
 }
 
 func (s *ServerManager) getTypeByName(name string) int {
