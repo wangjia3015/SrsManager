@@ -20,20 +20,17 @@ const (
 	CNC       = 1
 	CMCC      = 2
 	IspCount  = 3
-	BeijingId = 31
+	BeijingId = 0
 )
 
 type IpDatabase struct {
 	SubNets        map[string]*SubNet
-	Provinces      []*Province
+	Provinces      [31]*Province
 	ProvinceEncode map[string]int
 }
 
 func NewIpDatabase() (i *IpDatabase, err error) {
-	i = &IpDatabase{SubNets: make(map[string]*SubNet), Provinces: make([]*Province, 0)}
-	if err = i.LoadIpDatabase("../utils/isp.txt"); err != nil {
-		return
-	}
+	i = &IpDatabase{SubNets: make(map[string]*SubNet)}
 	i.ProvinceEncode = map[string]int{
 		"beijing":      0,
 		"guangdong":    1,
@@ -66,7 +63,9 @@ func NewIpDatabase() (i *IpDatabase, err error) {
 		"hunan":        28,
 		"shandong":     29,
 		"jiangxi":      30,
-		"taiwan":       31,
+	}
+	if err = i.LoadIpDatabase("../utils/isp.txt"); err != nil {
+		return
 	}
 	i.initProvince()
 	return
@@ -246,17 +245,17 @@ type SubNet struct {
 	IsCapital bool
 }
 
-func parseIpDatabase(line string) (s *SubNet, err error) {
+func (i *IpDatabase) parseIpDatabase(line string) (s *SubNet, err error) {
 	recordArr := strings.Split(line, ",")
 	if len(recordArr) != 7 {
 		return nil, fmt.Errorf("unavalid record %v,arrlen:%v", line, len(recordArr))
 	}
 	s = new(SubNet)
-	if _, s.Net, err = net.ParseCIDR(recordArr[1]); err != nil {
+	if _, s.Net, err = net.ParseCIDR(strings.TrimSpace(recordArr[1])); err != nil {
 		return nil, fmt.Errorf("unavalid record %v err %v", line, err)
 	}
-	s.SupperIsp = recordArr[2]
-	s.Ispname = recordArr[3]
+	s.SupperIsp = strings.TrimSpace(recordArr[2])
+	s.Ispname = strings.TrimSpace(recordArr[3])
 	switch s.SupperIsp {
 	case "cnc":
 		s.IspType = CNC
@@ -269,14 +268,19 @@ func parseIpDatabase(line string) (s *SubNet, err error) {
 	}
 	arr := strings.Split(s.Ispname, "_")
 	if len(arr) == 2 {
-		s.Province = arr[0]
+		s.Province = strings.TrimSpace(arr[0])
 	}
 	if recordArr[0] == "E" {
 		s.IsCapital = true
 	}
-	s.Latitude, _ = strconv.ParseFloat(recordArr[4], 64)
-	s.Longitude, _ = strconv.ParseFloat(recordArr[5], 64)
-	s.Desc = strings.Replace(recordArr[6], "\n", "", 100)
+	s.Latitude, _ = strconv.ParseFloat(strings.TrimSpace(recordArr[4]), 64)
+	s.Longitude, _ = strconv.ParseFloat(strings.TrimSpace(recordArr[5]), 64)
+	s.Desc = strings.Replace(strings.TrimSpace(recordArr[6]), "\n", "", 100)
+	var ok bool
+	s.Id, ok = i.ProvinceEncode[s.Province]
+	if !ok {
+		s.Id = BeijingId
+	}
 
 	return
 }
@@ -316,12 +320,8 @@ func (i *IpDatabase) LoadIpDatabase(database string) (err error) {
 			return fmt.Errorf("load database file:%v err:%v", database, err)
 		}
 		var s *SubNet
-		if s, err = parseIpDatabase(line); err != nil {
+		if s, err = i.parseIpDatabase(line); err != nil {
 			continue
-		}
-		ok := false
-		if s.Id, ok = i.ProvinceEncode[s.Province]; !ok {
-			s.Id = BeijingId
 		}
 		i.SubNets[s.Net.String()] = s
 	}
@@ -336,6 +336,7 @@ func (i *IpDatabase) initProvince() {
 			i.Provinces[s.Id] = NewProvince(s.Province, s)
 		}
 	}
+	fmt.Println(i.Provinces)
 	for _, p := range i.Provinces {
 		srcNet := p.subnet
 		for _, pp := range i.Provinces {
