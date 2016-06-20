@@ -95,7 +95,7 @@ func (s *ServerManager) streamHandler(w http.ResponseWriter, r *http.Request) {
 
 	mutex.Lock()
 	for h, svr := range servers {
-		streams[h] = svr.Streams
+		streams[h] = svr.GetStreams()
 	}
 	mutex.Unlock()
 
@@ -119,7 +119,7 @@ func (s *ServerManager) summaryHandler(w http.ResponseWriter, r *http.Request) {
 
 	mutex.Lock()
 	for h, svr := range servers {
-		infos[h] = svr.Summary
+		infos[h] = svr.GetSummary()
 	}
 	mutex.Unlock()
 
