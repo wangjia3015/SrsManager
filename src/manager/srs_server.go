@@ -2,6 +2,7 @@ package manager
 
 import (
 	"fmt"
+	"sync"
 	"time"
 	"utils"
 
@@ -32,13 +33,28 @@ type SrsServer struct {
 
 	Desc string
 
-	Net     *SubNet
-	Streams *StreamInfo
-	Summary *SummaryInfo
+	Net *SubNet
+
+	streamsLock sync.RWMutex
+	summaryLock sync.RWMutex
+	streams     *StreamInfo
+	summary     *SummaryInfo
+}
+
+func (s *SrsServer) GetStreams() *StreamInfo {
+	s.streamsLock.RLock()
+	defer s.streamsLock.RUnlock()
+	return s.streams
+}
+
+func (s *SrsServer) GetSummary() *SummaryInfo {
+	s.summaryLock.Lock()
+	defer s.summaryLock.RUnlock()
+	return s.summary
 }
 
 func (s *SrsServer) getLoad() float64 {
-	return s.Summary.Data.Sys.Load1m * float64(s.Summary.Data.Sys.NetSend)
+	return s.GetSummary().Data.Sys.Load1m * float64(s.GetSummary().Data.Sys.NetSend)
 }
 
 type SortSrsServers []*SrsServer
@@ -79,7 +95,9 @@ func (s *SrsServer) UpdateServerStreams() {
 	} else {
 		si := &StreamInfo{Host: s.Host, UpdateTime: time.Now().Unix()}
 		si.Streams = rsp.Streams
-		s.Streams = si
+		s.streamsLock.Lock()
+		s.streams = si
+		s.streamsLock.Unlock()
 		//glog.Infoln("UpdateServerStreams", s.Streams)
 	}
 }
@@ -93,7 +111,9 @@ func (s *SrsServer) UpdateServerSummaries() {
 	} else {
 		summary := &SummaryInfo{Host: s.Host, UpdateTime: time.Now().Unix()}
 		summary.Data = rsp.Data
-		s.Summary = summary
+		s.summaryLock.Lock()
+		s.summary = summary
+		s.summaryLock.Unlock()
 		//glog.Infoln("UpdateServerSummaries", s.Summary)
 	}
 }
