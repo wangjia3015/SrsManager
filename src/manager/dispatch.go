@@ -168,6 +168,9 @@ func (p *Province) dispatch(i *IpDatabase, count, ispType, disType int) (servers
 		dispServers, lock := dp.getDispServers(ispType, disType)
 		lock.RLock()
 		for _, e := range dispServers {
+			if !e.IsAvaliable() {
+				continue
+			}
 			servers = append(servers, e)
 			if len(servers) == count {
 				lock.RUnlock()

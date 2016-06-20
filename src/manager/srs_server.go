@@ -114,3 +114,16 @@ func (s *SrsServer) UpdateServerSummaries() {
 		//glog.Infoln("UpdateServerSummaries", s.Summary)
 	}
 }
+
+func (s *SrsServer) IsAvaliable() bool {
+	s.summaryLock.RLock()
+	sendBytes := s.summary.Data.Sys.NetSendi
+	load5m := s.summary.Data.Sys.Load5m
+	load1m := s.summary.Data.Sys.Load1m
+	s.summaryLock.RUnlock()
+	if load1m > 64 || load5m > 64 || sendBytes > 100*1024*1024 {
+		return false
+	}
+
+	return true
+}
