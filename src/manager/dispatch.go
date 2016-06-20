@@ -16,21 +16,56 @@ import (
 )
 
 const (
-	CT       = 0
-	CNC      = 1
-	CMCC     = 2
-	IspCount = 3
+	CT        = 0
+	CNC       = 1
+	CMCC      = 2
+	IspCount  = 3
+	BeijingId = 31
 )
 
 type IpDatabase struct {
-	SubNets   map[string]*SubNet
-	Provinces map[string]*Province
+	SubNets        map[string]*SubNet
+	Provinces      []*Province
+	ProvinceEncode map[string]int
 }
 
 func NewIpDatabase() (i *IpDatabase, err error) {
-	i = &IpDatabase{SubNets: make(map[string]*SubNet), Provinces: make(map[string]*Province)}
+	i = &IpDatabase{SubNets: make(map[string]*SubNet), Provinces: make([]*Province, 0)}
 	if err = i.LoadIpDatabase("../utils/isp.txt"); err != nil {
 		return
+	}
+	i.ProvinceEncode = map[string]int{
+		"guangdong":    1,
+		"yunnan":       2,
+		"shanghai":     3,
+		"jiangsu":      4,
+		"qinghai":      5,
+		"ningxia":      6,
+		"liaoning":     7,
+		"gansu":        8,
+		"guizhou":      9,
+		"hubei":        10,
+		"xinjiang":     11,
+		"hebei":        12,
+		"jilin":        13,
+		"shanxi":       14,
+		"zhejiang":     15,
+		"tianjin":      16,
+		"neimenggu":    17,
+		"anhui":        18,
+		"guangxi":      19,
+		"sshanxi":      20,
+		"fujian":       21,
+		"sichuan":      22,
+		"henan":        23,
+		"xizang":       24,
+		"chongqing":    25,
+		"hainan":       26,
+		"heilongjiang": 27,
+		"hunan":        28,
+		"shandong":     29,
+		"jiangxi":      30,
+		"beijing":      31,
 	}
 	i.initProvince()
 	return
@@ -42,33 +77,39 @@ func NewIpDatabase() (i *IpDatabase, err error) {
 func (i *IpDatabase) DisPatch(addr string, disType, count int) (servers []*SrsServer) {
 	net, err := i.GetSubNet(addr)
 	if err != nil {
-		net = &SubNet{IspType: CT, Province: "beijing"}
+		net = &SubNet{IspType: CT, Province: "beijing", Id: BeijingId}
 	}
-	p, ok := i.Provinces[net.Province]
-	if !ok {
-		p = i.Provinces["beijing"]
+	var p *Province
+	if net.Id < 1 || net.Id > 31 {
+		p = i.Provinces[BeijingId]
+	} else {
+		p = i.Provinces[net.Id]
 	}
 	needIspType := net.IspType
 	if needIspType != CT && needIspType != CMCC && needIspType != CNC {
 		needIspType = CT
 	}
+
 	return p.dispatch(i, count, net.IspType, disType)
 }
 
 func (i *IpDatabase) AddServer(s *SrsServer) {
 	net, err := i.GetSubNet(s.Host)
 	if err != nil {
-		net = &SubNet{IspType: CT, Province: "beijing"}
+		net = &SubNet{IspType: CT, Province: "beijing", Id: BeijingId}
 	}
-	p, ok := i.Provinces[net.Province]
-	if !ok {
-		p = i.Provinces["beijing"]
+	var p *Province
+	if net.Id < 1 || net.Id > 31 {
+		p = i.Provinces[BeijingId]
+	} else {
+		p = i.Provinces[net.Id]
 	}
 	s.Net = p.subnet
 	p.AddServer(s)
 }
 
 type Province struct {
+	Id        int
 	SrcName   string
 	Target    []*TargetProvinceDesc
 	subnet    *SubNet
@@ -83,6 +124,7 @@ type Province struct {
 func NewProvince(name string, subnet *SubNet) (p *Province) {
 	p = new(Province)
 	p.SrcName = name
+	p.Id = subnet.Id
 	p.Target = make([]*TargetProvinceDesc, 0)
 	p.subnet = subnet
 	for i := 0; i < IspCount; i++ {
@@ -120,24 +162,12 @@ func (p *Province) sortByLoad() {
 
 func (p *Province) dispatch(i *IpDatabase, count, ispType, disType int) (servers []*SrsServer) {
 	servers = make([]*SrsServer, 0)
-	execult := make([]*SrsServer, 0)
 	for _, d := range p.Target {
-		destname := d.TargetName
-		dp, _ := i.Provinces[destname]
+		dp := i.Provinces[d.TargetId]
 		dispServers, lock := dp.getDispServers(ispType, disType)
 		lock.RLock()
 		for _, e := range dispServers {
-			isExsit := false
-			for _, es := range execult {
-				if es.Host == e.Host {
-					isExsit = true
-					break
-				}
-			}
-			if !isExsit {
-				servers = append(servers, e)
-				execult = append(execult, e)
-			}
+			servers = append(servers, e)
 			if len(servers) == count {
 				lock.RUnlock()
 				return
@@ -167,6 +197,7 @@ func (p *Province) getDispServers(needIspType, dispType int) (servers []*SrsServ
 
 type TargetProvinceDesc struct {
 	TargetName string
+	TargetId   int
 	Distance   float64
 }
 
@@ -284,6 +315,10 @@ func (i *IpDatabase) LoadIpDatabase(database string) (err error) {
 		if s, err = parseIpDatabase(line); err != nil {
 			continue
 		}
+		ok := false
+		if s.Id, ok = i.ProvinceEncode[s.Province]; !ok {
+			s.Id = BeijingId
+		}
 		i.SubNets[s.Net.String()] = s
 	}
 	err = nil
@@ -294,15 +329,16 @@ func (i *IpDatabase) LoadIpDatabase(database string) (err error) {
 func (i *IpDatabase) initProvince() {
 	for _, s := range i.SubNets {
 		if s.IsCapital {
-			i.Provinces[s.Province] = NewProvince(s.Province, s)
+			i.Provinces[s.Id] = NewProvince(s.Province, s)
 		}
 	}
 	for _, p := range i.Provinces {
 		srcNet := p.subnet
-		for name, pp := range i.Provinces {
+		for _, pp := range i.Provinces {
 			destNet := pp.subnet
-			d := &TargetProvinceDesc{TargetName: name, Distance: EarthDistance(srcNet.Latitude,
-				srcNet.Longitude, destNet.Latitude, destNet.Longitude)}
+			d := &TargetProvinceDesc{TargetName: destNet.Province, TargetId: destNet.Id,
+				Distance: EarthDistance(srcNet.Latitude, srcNet.Longitude,
+					destNet.Latitude, destNet.Longitude)}
 			p.Target = append(p.Target, d)
 			if math.IsNaN(d.Distance) {
 				d.Distance = 0
@@ -314,7 +350,7 @@ func (i *IpDatabase) initProvince() {
 
 func (i *IpDatabase) sort() {
 	for _, p := range i.Provinces {
-		sort.Sort((SortTargetProvince)(p.Target))
+		p.sortByLoad()
 		time.Sleep(time.Minute)
 	}
 }
