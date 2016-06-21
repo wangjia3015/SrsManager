@@ -3,6 +3,7 @@ package manager
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -93,19 +94,23 @@ func (i *IpDatabase) DisPatch(addr string, disType, count int) (servers []*SrsSe
 	return p.dispatch(i, count, net.IspType, disType)
 }
 
-func (i *IpDatabase) AddServer(s *SrsServer) {
-	net, err := i.GetSubNet(s.Host)
-	if err != nil {
-		net = &SubNet{IspType: CT, Province: "beijing", Id: BeijingId}
+func (i *IpDatabase) AddServer(s *SrsServer) error {
+	var err error
+	var addr string
+	if addr, err = s.GetPublicAddr(); err != nil {
+		return err
 	}
-	var p *Province
-	if net.Id < 1 || net.Id > 32 {
-		p = i.Provinces[BeijingId]
-	} else {
-		p = i.Provinces[net.Id]
+
+	if s.Net, err = i.GetSubNet(addr); err != nil {
+		return err
 	}
+	if s.Net.Id < 1 || s.Net.Id > 32 {
+		return errors.New(fmt.Sprintf("invalid province id %d", s.Net.Id))
+	}
+	p := i.Provinces[s.Net.Id]
 	s.Net = p.subnet
 	p.AddServer(s)
+	return nil
 }
 
 type Province struct {

@@ -1,7 +1,9 @@
 package manager
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 	"utils"
@@ -26,16 +28,27 @@ type SummaryInfo struct {
 }
 
 type SrsServer struct {
-	ID          int64
-	Host        string
-	Type        int
-	Status      int // 暂时没用
-	Desc        string
-	Net         *SubNet
+	ID         int64
+	Host       string
+	PublicHost string
+	Type       int
+	Status     int // 暂时没用
+	Desc       string
+	Net        *SubNet
+
 	streamsLock sync.RWMutex
 	summaryLock sync.RWMutex
 	streams     *StreamInfo
 	summary     *SummaryInfo
+}
+
+func (s *SrsServer) GetPublicAddr() (string, error) {
+	strs := strings.Split(s.PublicHost, ":")
+	strsLen := len(strs)
+	if strsLen < 1 || strsLen > 2 {
+		return "", errors.New(fmt.Sprintf("invalid PublicHost", s.PublicHost))
+	}
+	return strs[0], nil
 }
 
 func (s *SrsServer) GetStreams() *StreamInfo {
@@ -68,10 +81,11 @@ func (sp SortSrsServers) Less(i, j int) bool {
 	return sp[i].getLoad() < sp[j].getLoad()
 }
 
-func NewSrsServer(host, desc string, serverType int) *SrsServer {
+func NewSrsServer(host, desc, publicHost string, serverType int) *SrsServer {
 	return &SrsServer{
-		Host: host,
-		Type: serverType,
+		Host:       host,
+		Type:       serverType,
+		PublicHost: publicHost,
 	}
 }
 

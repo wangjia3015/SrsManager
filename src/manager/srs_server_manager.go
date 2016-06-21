@@ -3,11 +3,12 @@ package manager
 import (
 	"errors"
 	"fmt"
-	"github.com/golang/glog"
 	"net/http"
 	"strings"
 	"sync"
 	"utils"
+
+	"github.com/golang/glog"
 )
 
 const (
@@ -16,8 +17,8 @@ const (
 	SERVER_TYPE_ORIGIN
 	SERVER_TYPE_COUNT
 
-	STR_TYPE_EDGE_UP   = "edgeup"
-	STR_TYPE_EDGE_DOWN = "edgedown"
+	STR_TYPE_EDGE_UP   = "up"
+	STR_TYPE_EDGE_DOWN = "down"
 	STR_TYPE_ORIGIN    = "origin"
 )
 
@@ -41,8 +42,35 @@ func NewSrsServermanager(db *DBSync) (sm *ServerManager, err error) {
 		locks:   make([]sync.Mutex, SERVER_TYPE_COUNT),
 	}
 	sm.ipDatabase, err = NewIpDatabase()
+	err = sm.initServers()
 
 	return
+}
+
+func (s *ServerManager) initServers() error {
+	var err error
+	for i := 0; i < SERVER_TYPE_COUNT; i++ {
+		for _, svr := range s.servers[i] {
+			var addr string
+			if addr, err = svr.GetPublicAddr(); err != nil {
+				return err
+			}
+			if svr.Net, err = s.ipDatabase.GetSubNet(addr); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (s *ServerManager) GetServers(addr string, disType int) []string {
+	count := 3
+	servers := s.ipDatabase.DisPatch(addr, disType, count)
+	result := []string{}
+	for _, svr := range servers {
+		result = append(result, svr.PublicHost)
+	}
+	return result
 }
 
 func (s *ServerManager) LoadServers() error {
@@ -76,6 +104,16 @@ func (s *ServerManager) HttpHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type StreamTotalInfo struct {
+	Name    string
+	AppName string
+
+	ClientTotal    int
+	SendBytesTotal int64
+	RecvBytesTotal int64
+	KbpsTotal      utils.KbpsInfo
+}
+
 // /stream/edge
 func (s *ServerManager) streamHandler(w http.ResponseWriter, r *http.Request) {
 	args := GetUrlParams(r.URL.Path, URL_PATH_STREAMS)
@@ -101,8 +139,28 @@ func (s *ServerManager) streamHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	mutex.Unlock()
 
-	if err := utils.WriteObjectResponse(w, streams); err != nil {
-		glog.Warningln("writeRespons err", streams)
+	var result interface{}
+	result = streams
+	if len(args) > 2 {
+		var total StreamTotalInfo
+		total.AppName = args[1]
+		total.Name = args[2]
+		for _, v := range streams {
+			for _, i := range v.Streams {
+				if i.Name == total.Name && i.AppName == total.AppName {
+					total.ClientTotal += i.ClientNum
+					total.SendBytesTotal += i.SendBytes
+					total.RecvBytesTotal += i.RecvBytes
+					total.KbpsTotal.Recv30s += i.Kbps.Recv30s
+					total.KbpsTotal.Send30s += i.Kbps.Send30s
+				}
+			}
+		}
+		result = &total
+	}
+
+	if err := utils.WriteObjectResponse(w, result); err != nil {
+		glog.Warningln("writeRespons err", result)
 	}
 }
 
@@ -133,6 +191,7 @@ func (s *ServerManager) summaryHandler(w http.ResponseWriter, r *http.Request) {
 type ReqCreateServer struct {
 	Host       string `json:"host"`
 	Desc       string `json:"desc"`
+	PublicAddr string `json:"address"`
 	ServerType int    `json:"type"`
 }
 
@@ -149,8 +208,7 @@ func (s *ServerManager) serverHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO
-	server := NewSrsServer(req.Host, req.Desc, req.ServerType)
+	server := NewSrsServer(req.Host, req.Desc, req.PublicAddr, req.ServerType)
 	if err = s.AddServer(server); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		glog.Warningln("AddsrsServer error", err, server)
@@ -175,7 +233,12 @@ func (s *ServerManager) AddServer(svr *SrsServer) error {
 		return errors.New(fmt.Sprintln("err server type", svr.Host))
 	}
 
-	if err := s.db.InsertServer(svr); err != nil {
+	var err error
+	if err = s.ipDatabase.AddServer(svr); err != nil {
+		return err
+	}
+
+	if err = s.db.InsertServer(svr); err != nil {
 		return err
 	}
 
