@@ -86,6 +86,8 @@ func NewSrsServer(host, desc, publicHost string, serverType int) *SrsServer {
 		Host:       host,
 		Type:       serverType,
 		PublicHost: publicHost,
+		streams:    &StreamInfo{},
+		summary:    &SummaryInfo{},
 	}
 }
 

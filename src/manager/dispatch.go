@@ -14,6 +14,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/golang/glog"
 )
 
 const (
@@ -65,11 +67,26 @@ func NewIpDatabase() (i *IpDatabase, err error) {
 		"shandong":     29,
 		"jiangxi":      30,
 	}
-	if err = i.LoadIpDatabase("../utils/isp.txt"); err != nil {
+	//if err = i.LoadIpDatabase("../utils/isp.txt"); err != nil {
+	if err = i.LoadIpDatabase("src/utils/isp.txt"); err != nil {
 		return
 	}
 	i.initProvince()
 	return
+}
+
+// just for test
+func (i *IpDatabase) Contains(addr string) {
+	ip := net.ParseIP(addr)
+	if ip == nil {
+		glog.Infoln("IP return nil")
+		return
+	}
+	for _, s := range i.SubNets {
+		if s.Net.Contains(ip) {
+			glog.Infoln("addr", addr, "is in", s.Net.String())
+		}
+	}
 }
 
 /*
@@ -119,11 +136,11 @@ type Province struct {
 	Target    []*TargetProvinceDesc
 	subnet    *SubNet
 	UpEdge    [IspCount][]*SrsServer
-	uplock    [IspCount]sync.RWMutex
+	uplock    []sync.RWMutex
 	DownEdge  [IspCount][]*SrsServer
-	downlock  [IspCount]sync.RWMutex
+	downlock  []sync.RWMutex
 	Orign     [IspCount][]*SrsServer
-	orginlock [IspCount]sync.RWMutex
+	orginlock []sync.RWMutex
 }
 
 func NewProvince(name string, subnet *SubNet) (p *Province) {
@@ -132,6 +149,9 @@ func NewProvince(name string, subnet *SubNet) (p *Province) {
 	p.Id = subnet.Id
 	p.Target = make([]*TargetProvinceDesc, 0)
 	p.subnet = subnet
+	p.uplock = make([]sync.RWMutex, IspCount)
+	p.downlock = make([]sync.RWMutex, IspCount)
+	p.orginlock = make([]sync.RWMutex, IspCount)
 	for i := 0; i < IspCount; i++ {
 		p.UpEdge[i] = make([]*SrsServer, 0)
 		p.DownEdge[i] = make([]*SrsServer, 0)
@@ -152,7 +172,7 @@ func (p *Province) AddServer(s *SrsServer) {
 }
 
 func (p *Province) sortByLoad() {
-	for i := 0; i <= IspCount; i++ {
+	for i := 0; i < IspCount; i++ {
 		p.uplock[i].RLock()
 		sort.Sort(SortSrsServers(p.UpEdge[i]))
 		p.uplock[i].RUnlock()
@@ -329,6 +349,7 @@ func (i *IpDatabase) LoadIpDatabase(database string) (err error) {
 			continue
 		}
 		i.SubNets[s.Net.String()] = s
+		glog.Infoln(s.Net.String())
 	}
 	err = nil
 
