@@ -295,7 +295,7 @@ func (i *IpDatabase) GetSubNet(addr string) (subnet *SubNet, err error) {
 	network := ip.Mask(mask)
 	net := net.IPNet{IP: network, Mask: mask}
 	if subnet, ok = i.SubNets[net.String()]; !ok {
-		return nil, fmt.Errorf("addr :%v subnet:%v not exsits ipdatabase:%v", addr, net.String())
+		return nil, fmt.Errorf("addr :%v subnet:%v not exsits ipdatabase", addr, net.String())
 	}
 
 	return
