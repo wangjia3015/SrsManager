@@ -32,6 +32,7 @@ type SrsServer struct {
 	Host       string
 	PublicHost string
 	Type       int
+	Idc        int
 	Status     int // 暂时没用
 	Desc       string
 	Net        *SubNet
@@ -44,8 +45,7 @@ type SrsServer struct {
 
 func (s *SrsServer) GetPublicAddr() (string, error) {
 	strs := strings.Split(s.PublicHost, ":")
-	strsLen := len(strs)
-	if strsLen < 1 || strsLen > 2 {
+	if len(strs) != 2 {
 		return "", errors.New(fmt.Sprintf("invalid PublicHost", s.PublicHost))
 	}
 	return strs[0], nil

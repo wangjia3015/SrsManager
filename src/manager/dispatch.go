@@ -29,6 +29,7 @@ type IpDatabase struct {
 	SubNets        map[string]*SubNet
 	Provinces      [31]*Province
 	ProvinceEncode map[string]int
+	i              *InsideLive
 }
 
 func NewIpDatabase() (i *IpDatabase, err error) {
