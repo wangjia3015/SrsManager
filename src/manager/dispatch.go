@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/golang/glog"
 	"io"
 	"math"
 	"net"
@@ -14,8 +15,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/golang/glog"
 )
 
 const (
@@ -359,7 +358,6 @@ func (i *IpDatabase) initProvince() {
 			i.Provinces[s.Id] = NewProvince(s.Province, s)
 		}
 	}
-	fmt.Println(i.Provinces)
 	for _, p := range i.Provinces {
 		srcNet := p.subnet
 		for _, pp := range i.Provinces {
