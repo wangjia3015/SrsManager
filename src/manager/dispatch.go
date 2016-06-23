@@ -136,11 +136,11 @@ type Province struct {
 	Target    []*TargetProvinceDesc
 	subnet    *SubNet
 	UpEdge    [IspCount][]*SrsServer
-	uplock    []sync.RWMutex
+	uplock    [IspCount]sync.RWMutex
 	DownEdge  [IspCount][]*SrsServer
-	downlock  []sync.RWMutex
+	downlock  [IspCount]sync.RWMutex
 	Orign     [IspCount][]*SrsServer
-	orginlock []sync.RWMutex
+	orginlock [IspCount]sync.RWMutex
 }
 
 func NewProvince(name string, subnet *SubNet) (p *Province) {
@@ -149,9 +149,6 @@ func NewProvince(name string, subnet *SubNet) (p *Province) {
 	p.Id = subnet.Id
 	p.Target = make([]*TargetProvinceDesc, 0)
 	p.subnet = subnet
-	p.uplock = make([]sync.RWMutex, IspCount)
-	p.downlock = make([]sync.RWMutex, IspCount)
-	p.orginlock = make([]sync.RWMutex, IspCount)
 	for i := 0; i < IspCount; i++ {
 		p.UpEdge[i] = make([]*SrsServer, 0)
 		p.DownEdge[i] = make([]*SrsServer, 0)
