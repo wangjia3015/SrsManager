@@ -31,12 +31,12 @@ func NewDBSync(dbDriver, dbDataSource string) *DBSync {
 	}
 }
 
-func (d *DBSync) open() (*sql.DB, error) {
-	if db, err := sql.Open(d.dbDriver, d.dbDataSource); err != nil {
-		return nil, err
-	} else {
-		return db, err
+func (d *DBSync) open() (db *sql.DB, err error) {
+	if db, err = sql.Open(d.dbDriver, d.dbDataSource); err != nil {
+		return nil, fmt.Errorf("donnot open sql:%v", d.dbDataSource)
 	}
+
+	return
 }
 
 func (d *DBSync) exec(sqlstr string, params ...interface{}) (sql.Result, error) {
@@ -51,14 +51,12 @@ func (d *DBSync) exec(sqlstr string, params ...interface{}) (sql.Result, error) 
 	return db.Exec(sqlstr, params...)
 }
 
-func (d *DBSync) InsertRoom(room *Room) error {
+func (d *DBSync) InsertRoom(room *Room) (err error) {
 	sql := "insert into room(`user`, `desc`, streamname, expiration, status, createtime, lastupdatetime) values(?, ?, ? , ?, ?, ?, ?)"
 
 	room.CreateTime = time.Now().Unix()
 	room.LastUpdateTime = room.CreateTime
-
 	var id int64
-	var err error
 	if id, err = d.insert(sql,
 		room.UserName,
 		room.Desc,
@@ -67,10 +65,11 @@ func (d *DBSync) InsertRoom(room *Room) error {
 		room.Status,
 		room.CreateTime,
 		room.LastUpdateTime,
-	); err == nil {
-		room.Id = id
+	); err != nil {
+		return fmt.Errorf("sql:%v err:%v", sql, err)
 	}
-	return err
+	room.Id = id
+	return
 }
 
 func (d *DBSync) insert(sql string, args ...interface{}) (lastInsertId int64, err error) {
@@ -88,7 +87,7 @@ func (d *DBSync) insert(sql string, args ...interface{}) (lastInsertId int64, er
 func (d *DBSync) UpdateRoom(room *Room) error {
 	sql := "update room set `desc`= ?, `streamname`=? , `expiration` = ?, status = ?, `publishid` = ?,`publishhost` = ?, lastupdatetime=? where id = ?"
 	room.LastUpdateTime = time.Now().Unix()
-	if res, err := d.exec(sql,
+	if _, err := d.exec(sql,
 		room.Desc,
 		room.StreamName,
 		room.Expiration,
@@ -96,23 +95,15 @@ func (d *DBSync) UpdateRoom(room *Room) error {
 		room.PublishClientId,
 		room.PublishHost,
 		room.LastUpdateTime,
-		room.Id); err == nil {
-		if a, err := res.RowsAffected(); err != nil {
-			glog.Warningln("res.RowsAffected", err)
-		} else if a < 1 {
-			glog.Warningln("res.RowsAffected row", a)
-		}
-		glog.Infoln("update room", room)
-		return nil
-	} else {
-		return err
+		room.Id); err != nil {
+		return fmt.Errorf("sql:%v err:%v", sql, err)
 	}
+	return nil
 }
 
 func (d *DBSync) SelectRoom(params map[string]interface{}) (*Room, error) {
 	keys := []string{}
 	values := []interface{}{}
-
 	for k, v := range params {
 		keys = append(keys, " `"+k+"` = ? ")
 		values = append(values, v)
@@ -122,16 +113,12 @@ func (d *DBSync) SelectRoom(params map[string]interface{}) (*Room, error) {
 
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-	var db *sql.DB
-	var err error
-	if db, err = d.open(); err != nil {
-		return nil, err
+	db, err := d.open()
+	if err != nil {
+		return nil, fmt.Errorf("donnot open sql:%v", d.dbDataSource)
 	}
 	defer db.Close()
-
-	glog.Infoln(sqlstr, values[0])
 	row := db.QueryRow(sqlstr, values...)
-
 	var room Room
 	if err = row.Scan(&room.Id,
 		&room.UserName,
@@ -143,7 +130,7 @@ func (d *DBSync) SelectRoom(params map[string]interface{}) (*Room, error) {
 		&room.PublishHost,
 		&room.CreateTime,
 		&room.LastUpdateTime); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot rows scan sql:%v rows:%v err:%v", sqlstr, row, err)
 	}
 
 	return &room, nil
