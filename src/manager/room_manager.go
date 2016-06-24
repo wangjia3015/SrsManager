@@ -153,8 +153,7 @@ func (r *RoomManager) GetRoom(streamName, remoteAddr string) ReqRoomResponse {
 	return rsp
 }
 
-func (r *RoomManager) tryKickOffClient(host string, clientID int) error {
-	var err error
+func (r *RoomManager) tryKickOffClient(host string, clientID int) (err error) {
 	var rsp utils.RspBase
 	for i := 0; i < 3; i++ {
 		if rsp, err = utils.KickOffClient(host, clientID); err != nil || rsp.Code != 0 {
