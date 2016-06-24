@@ -1,4 +1,4 @@
-use srs_manager
+use srs_manager;
 
 CREATE TABLE `room` (
       `id` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -13,7 +13,7 @@ CREATE TABLE `room` (
       `createtime` int(11) NOT NULL,
       PRIMARY KEY (`id`),
       UNIQUE KEY `name` (`streamname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE `srs_server` (
       `id` bigint(20) NOT NULL AUTO_INCREMENT,
