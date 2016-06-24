@@ -18,22 +18,23 @@ import (
 )
 
 const (
-	CT        = 0
-	CNC       = 1
-	CMCC      = 2
-	IspCount  = 3
-	BeijingId = 0
+	CT               = 0
+	CNC              = 1
+	CMCC             = 2
+	IspCount         = 3
+	BeijingId        = 0
+	InsizeAddrPrefix = "172."
 )
 
 type IpDatabase struct {
 	SubNets        map[string]*SubNet
 	Provinces      [31]*Province
 	ProvinceEncode map[string]int
-	i              *InsideLive
+	inside         *InsideLive
 }
 
 func NewIpDatabase() (i *IpDatabase, err error) {
-	i = &IpDatabase{SubNets: make(map[string]*SubNet)}
+	i = &IpDatabase{SubNets: make(map[string]*SubNet), i: NewInsideLive()}
 	i.ProvinceEncode = map[string]int{
 		"beijing":      0,
 		"guangdong":    1,
@@ -93,6 +94,10 @@ func (i *IpDatabase) Contains(addr string) {
   dispatch algorithm
 */
 func (i *IpDatabase) DisPatch(addr string, disType, count int) (servers []*SrsServer) {
+	if strings.HasPrefix(addr, InsizeAddrPrefix) {
+		return i.inside.dispatch(count, disType)
+	}
+
 	net, err := i.GetSubNet(addr)
 	if err != nil {
 		net = &SubNet{IspType: CT, Province: "beijing", Id: BeijingId}
@@ -111,11 +116,15 @@ func (i *IpDatabase) DisPatch(addr string, disType, count int) (servers []*SrsSe
 	return p.dispatch(i, count, net.IspType, disType)
 }
 
-func (i *IpDatabase) AddServer(s *SrsServer) error {
-	var err error
-	var addr string
+func (i *IpDatabase) AddServer(s *SrsServer) (err error) {
+	var (
+		addr string
+	)
 	if addr, err = s.GetPublicAddr(); err != nil {
 		return err
+	}
+	if strings.HasPrefix(addr, InsizeAddrPrefix) {
+		return i.inside.AddServer(s)
 	}
 
 	if s.Net, err = i.GetSubNet(addr); err != nil {
@@ -127,6 +136,7 @@ func (i *IpDatabase) AddServer(s *SrsServer) error {
 	p := i.Provinces[s.Net.Id]
 	s.Net = p.subnet
 	p.AddServer(s)
+
 	return nil
 }
 
