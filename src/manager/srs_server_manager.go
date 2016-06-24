@@ -20,6 +20,8 @@ const (
 	STR_TYPE_EDGE_UP   = "up"
 	STR_TYPE_EDGE_DOWN = "down"
 	STR_TYPE_ORIGIN    = "origin"
+
+	DefaultDisPatchCount = 2
 )
 
 type ServerManager struct {
@@ -30,12 +32,10 @@ type ServerManager struct {
 }
 
 func NewSrsServermanager(db *DBSync) (sm *ServerManager, err error) {
-
 	servers := make([]map[string]*SrsServer, SERVER_TYPE_COUNT)
 	for i := 0; i < SERVER_TYPE_COUNT; i++ {
 		servers[i] = make(map[string]*SrsServer)
 	}
-
 	sm = &ServerManager{
 		db:      db,
 		servers: servers,
@@ -47,8 +47,7 @@ func NewSrsServermanager(db *DBSync) (sm *ServerManager, err error) {
 	return
 }
 
-func (s *ServerManager) initServers() error {
-	var err error
+func (s *ServerManager) initServers() (err error) {
 	for i := 0; i < SERVER_TYPE_COUNT; i++ {
 		for _, svr := range s.servers[i] {
 			var addr string
@@ -63,21 +62,20 @@ func (s *ServerManager) initServers() error {
 	return nil
 }
 
-func (s *ServerManager) GetServers(addr string, disType int) []string {
-	count := 3
-	servers := s.ipDatabase.DisPatch(addr, disType, count)
-	result := []string{}
+func (s *ServerManager) GetServers(addr string, disType int) (result []string) {
+	servers := s.ipDatabase.DisPatch(addr, disType, DefaultDisPatchCount)
+	result = make([]string, 0)
 	for _, svr := range servers {
 		result = append(result, svr.PublicHost)
 	}
-	return result
+
+	return
 }
 
 func (s *ServerManager) LoadServers() error {
 	servers, err := s.db.LoadSrsServers()
 	if err != nil {
-		glog.Warningln("LoadSrsServers", err)
-		return err
+		return fmt.Errorf("Load Srsservers error:%v", err)
 	}
 
 	for _, svr := range servers {
@@ -86,10 +84,9 @@ func (s *ServerManager) LoadServers() error {
 			ss[svr.Host] = svr
 			mutex.Unlock()
 			go svr.UpdateStatusLoop()
-		} else {
-			glog.Warningln("Server type undefeine", svr)
 		}
 	}
+
 	return nil
 }
 
@@ -201,9 +198,8 @@ func (s *ServerManager) serverHandler(w http.ResponseWriter, r *http.Request) {
 		req ReqCreateServer
 		err error
 	)
-
 	if err = utils.ReadAndUnmarshalObject(r.Body, &req); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusBadRequest)
 		glog.Warningln("ReadAndUnmarshalObject", err)
 		return
 	}
@@ -220,34 +216,30 @@ func (s *ServerManager) serverHandler(w http.ResponseWriter, r *http.Request) {
 	glog.Infoln("AddSrsServer done", server)
 }
 
-func (s *ServerManager) AddServer(svr *SrsServer) error {
+func (s *ServerManager) AddServer(svr *SrsServer) (err error) {
 	servers, mutex := s.getServersByType(svr.Type)
-
 	if servers == nil {
-		glog.Warningln("error server type", svr.Type, svr)
-		return errors.New(fmt.Sprintln("err server type", svr.Type))
+		return fmt.Errorf("AddServer-err server type[%v]", svr.Type)
 	}
 
 	if _, ok := servers[svr.Host]; ok {
-		glog.Warningln("error server host already exists", svr.Host, svr)
-		return errors.New(fmt.Sprintln("err server type", svr.Host))
+		return fmt.Errorf("AddServer-error server[%v] host already exists", svr.Host)
 	}
 
-	var err error
 	if err = s.ipDatabase.AddServer(svr); err != nil {
-		return err
+		return fmt.Errorf("AddServer-IpDataBase Add server:%v err:%v", svr.Host, err)
 	}
 
 	if err = s.db.InsertServer(svr); err != nil {
-		return err
+		return fmt.Errorf("AddServer-dbInsert server:%v err:%v", svr.Host, err)
 	}
 
 	mutex.Lock()
 	servers[svr.Host] = svr
 	mutex.Unlock()
-	glog.Infoln("add server", svr.Host, svr)
 	go svr.UpdateStatusLoop()
-	return nil
+
+	return
 }
 
 func (s *ServerManager) getServersByType(serverType int) (map[string]*SrsServer,
@@ -255,6 +247,7 @@ func (s *ServerManager) getServersByType(serverType int) (map[string]*SrsServer,
 	if serverType > -1 && serverType < SERVER_TYPE_COUNT {
 		return s.servers[serverType], &s.locks[serverType]
 	}
+
 	return nil, nil
 }
 
