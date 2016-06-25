@@ -165,13 +165,11 @@ func (s *ServerManager) summaryHandler(w http.ResponseWriter, r *http.Request) {
 	args := GetUrlParams(r.URL.Path, URL_PATH_SUMMARIES)
 	if len(args) < 1 {
 		w.WriteHeader(http.StatusBadRequest)
-		glog.Warningln("invalid arg num")
 		return
 	}
 
 	infos := make(map[string]*SummaryInfo)
 	servers, mutex := s.getServersByName(args[0])
-
 	mutex.Lock()
 	for h, svr := range servers {
 		infos[h] = svr.GetSummary()
@@ -179,7 +177,7 @@ func (s *ServerManager) summaryHandler(w http.ResponseWriter, r *http.Request) {
 	mutex.Unlock()
 
 	if err := utils.WriteObjectResponse(w, infos); err != nil {
-		glog.Warningln("writeRespons err", infos)
+		glog.Warningf("summaryHandler-writeRespons infos[%v] err[%v]\n", infos, err)
 	}
 }
 
@@ -192,25 +190,30 @@ type ReqCreateServer struct {
 // server/dege  PUT
 func (s *ServerManager) serverHandler(w http.ResponseWriter, r *http.Request) {
 	var (
-		req ReqCreateServer
-		err error
+		req    ReqCreateServer
+		err    error
+		server *SrsServer
 	)
+	code := http.StatusBadRequest
 	if err = utils.ReadAndUnmarshalObject(r.Body, &req); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		glog.Warningln("ReadAndUnmarshalObject", err)
-		return
+		goto errDeal
 	}
 
-	server := NewSrsServer(req.Addr, req.Desc, req.ServerType)
+	server = NewSrsServer(req.Addr, req.Desc, req.ServerType)
 	if err = s.AddServer(server); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		glog.Warningln("AddsrsServer error", err, server)
-		return
+		code = http.StatusInternalServerError
+		goto errDeal
 	}
-	if err := utils.WriteObjectResponse(w, server); err != nil {
-		glog.Warningln("writeRespons err", server)
+
+	if err = utils.WriteObjectResponse(w, server); err != nil {
+		goto errDeal
 	}
-	glog.Infoln("AddSrsServer done", server)
+
+	return
+errDeal:
+	w.WriteHeader(code)
+	glog.Warningf("Add server error-req[%v] err[%v]\n", req, err)
+
 }
 
 func (s *ServerManager) AddServer(svr *SrsServer) (err error) {
