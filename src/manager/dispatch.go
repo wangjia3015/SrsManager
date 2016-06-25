@@ -34,7 +34,7 @@ type IpDatabase struct {
 }
 
 func NewIpDatabase() (i *IpDatabase, err error) {
-	i = &IpDatabase{SubNets: make(map[string]*SubNet), i: NewInsideLive()}
+	i = &IpDatabase{SubNets: make(map[string]*SubNet), inside: NewInsideLive()}
 	i.ProvinceEncode = map[string]int{
 		"beijing":      0,
 		"guangdong":    1,

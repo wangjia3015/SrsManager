@@ -1,14 +1,12 @@
 package manager
 
 import (
-	"errors"
 	"fmt"
+	"github.com/golang/glog"
 	"net/http"
 	"strings"
 	"sync"
 	"utils"
-
-	"github.com/golang/glog"
 )
 
 const (
@@ -81,7 +79,7 @@ func (s *ServerManager) LoadServers() error {
 	for _, svr := range servers {
 		if ss, mutex := s.getServersByType(svr.Type); ss != nil {
 			mutex.Lock()
-			ss[svr.Host] = svr
+			ss[svr.Addr] = svr
 			mutex.Unlock()
 			go svr.UpdateStatusLoop()
 		}
@@ -222,20 +220,20 @@ func (s *ServerManager) AddServer(svr *SrsServer) (err error) {
 		return fmt.Errorf("AddServer-err server type[%v]", svr.Type)
 	}
 
-	if _, ok := servers[svr.Host]; ok {
-		return fmt.Errorf("AddServer-error server[%v] host already exists", svr.Host)
+	if _, ok := servers[svr.Addr]; ok {
+		return fmt.Errorf("AddServer-error server[%v] host already exists", svr.Addr)
 	}
 
 	if err = s.ipDatabase.AddServer(svr); err != nil {
-		return fmt.Errorf("AddServer-IpDataBase Add server:%v err:%v", svr.Host, err)
+		return fmt.Errorf("AddServer-IpDataBase Add server:%v err:%v", svr.Addr, err)
 	}
 
 	if err = s.db.InsertServer(svr); err != nil {
-		return fmt.Errorf("AddServer-dbInsert server:%v err:%v", svr.Host, err)
+		return fmt.Errorf("AddServer-dbInsert server:%v err:%v", svr.Addr, err)
 	}
 
 	mutex.Lock()
-	servers[svr.Host] = svr
+	servers[svr.Addr] = svr
 	mutex.Unlock()
 	go svr.UpdateStatusLoop()
 

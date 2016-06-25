@@ -9,7 +9,6 @@ import (
 	"fmt"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/golang/glog"
 )
 
 const (
@@ -130,7 +129,7 @@ func (d *DBSync) SelectRoom(params map[string]interface{}) (*Room, error) {
 		&room.PublishHost,
 		&room.CreateTime,
 		&room.LastUpdateTime); err != nil {
-		return nil, fmt.Errorf("cannot rows scan sql:%v rows:%v err:%v", sqlstr, row, err)
+		return nil, fmt.Errorf("cannot rows scan sql:%v rows:%v err:%v", sqlstr)
 	}
 
 	return &room, nil
@@ -160,7 +159,7 @@ func (d *DBSync) LoadSrsServers() ([]*SrsServer, error) {
 		var srs SrsServer
 		if err = rows.Scan(
 			&srs.ID,
-			&srs.Host,
+			&srs.Addr,
 			&srs.PublicHost,
 			&srs.Desc,
 			&srs.Type,
@@ -175,6 +174,6 @@ func (d *DBSync) LoadSrsServers() ([]*SrsServer, error) {
 func (d *DBSync) InsertServer(svr *SrsServer) error {
 	sqlstr := "insert into " + TABLE_NAME_SRS_SERVER + "(`host`, `desc`, `type`, `addr`, `status`) values(?, ?, ?, ?, ?)"
 	var err error
-	svr.ID, err = d.insert(sqlstr, svr.Host, svr.Desc, svr.Type, svr.PublicHost, svr.Status)
+	svr.ID, err = d.insert(sqlstr, svr.Addr, svr.Desc, svr.Type, svr.PublicHost, svr.Status)
 	return err
 }

@@ -13,9 +13,9 @@ const (
 )
 
 type InsideLive struct {
-	Orign     [IdcCount]*SrsServer
+	Orign     [IdcCount][]*SrsServer
 	uplock    [IdcCount]sync.RWMutex
-	DownEdge  [IdcCount]*SrsServer
+	DownEdge  [IdcCount][]*SrsServer
 	downlock  [IdcCount]sync.RWMutex
 	currIndex int32
 }
@@ -23,14 +23,14 @@ type InsideLive struct {
 func NewInsideLive() (p *InsideLive) {
 	p = new(InsideLive)
 	for i := 0; i < IdcCount; i++ {
-		p.Orign = make([]*SrsServer, 0)
-		p.DownEdge = make([]*SrsServer, 0)
+		p.Orign[i] = make([]*SrsServer, 0)
+		p.DownEdge[i] = make([]*SrsServer, 0)
 	}
 
 	return
 }
 
-func (p *InsideLive) AddServer(s *SrsServer) {
+func (p *InsideLive) AddServer(s *SrsServer) (err error) {
 	servers, lock := p.getDispServers(s.Idc, s.Type)
 	lock.Lock()
 	servers = append(servers, s)
@@ -38,6 +38,8 @@ func (p *InsideLive) AddServer(s *SrsServer) {
 	lock.RLock()
 	sort.Sort(SortSrsServers(servers))
 	lock.RUnlock()
+
+	return
 }
 
 func (p *InsideLive) sortByLoad() {
@@ -61,7 +63,7 @@ func (p *InsideLive) dispatch(count, disType int) (servers []*SrsServer) {
 		for _, s := range idcservers {
 			var notExsit bool
 			for _, exsitS := range servers {
-				if exsitS.Host == s.Host {
+				if exsitS.Addr == s.Addr {
 					notExsit = true
 				}
 			}
@@ -90,12 +92,16 @@ func (p *InsideLive) getIdcServers(dispType int) (servers []*SrsServer,
 	}
 	if dispType == SERVER_TYPE_ORIGIN {
 		servers = p.Orign[int(index)]
-		lock = &p.uplock
+		lock = &p.uplock[int(index)]
 	} else if dispType == SERVER_TYPE_EDGE_DOWN {
 		servers = p.DownEdge[int(index)]
-		lock = &p.downlock
+		lock = &p.downlock[int(index)]
 	}
 	atomic.AddInt32(&p.currIndex, 1)
+	if index = atomic.LoadInt32(&p.currIndex); index >= IdcCount {
+		atomic.StoreInt32(&p.currIndex, 0)
+	}
+
 	return
 }
 

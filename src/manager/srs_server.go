@@ -29,7 +29,7 @@ type SummaryInfo struct {
 
 type SrsServer struct {
 	ID         int64
-	Host       string
+	Addr       string
 	PublicHost string
 	Type       int
 	Idc        int
@@ -83,7 +83,7 @@ func (sp SortSrsServers) Less(i, j int) bool {
 
 func NewSrsServer(host, desc, publicHost string, serverType int) *SrsServer {
 	return &SrsServer{
-		Host:       host,
+		Addr:       host,
 		Type:       serverType,
 		PublicHost: publicHost,
 		streams:    &StreamInfo{},
@@ -100,13 +100,13 @@ func (s *SrsServer) UpdateStatusLoop() {
 }
 
 func (s *SrsServer) UpdateServerStreams() {
-	if rsp, err := utils.GetStreams(s.Host); err != nil {
-		glog.Warningln("UpdateServer GetStreams", s.Host, err)
+	if rsp, err := utils.GetStreams(s.Addr); err != nil {
+		glog.Warningln("UpdateServer GetStreams", s.Addr, err)
 	} else if rsp.Code != 0 {
-		msg := fmt.Sprintln("GetStream server return err", s.Host, rsp.Code)
+		msg := fmt.Sprintln("GetStream server return err", s.Addr, rsp.Code)
 		glog.Warningln(msg)
 	} else {
-		si := &StreamInfo{Host: s.Host, UpdateTime: time.Now().Unix()}
+		si := &StreamInfo{Host: s.Addr, UpdateTime: time.Now().Unix()}
 		si.Streams = rsp.Streams
 		s.streamsLock.Lock()
 		s.streams = si
@@ -116,13 +116,13 @@ func (s *SrsServer) UpdateServerStreams() {
 }
 
 func (s *SrsServer) UpdateServerSummaries() {
-	if rsp, err := utils.GetSummaries(s.Host); err != nil {
-		glog.Warningln("UpdateServer GetSummaries", s.Host, err)
+	if rsp, err := utils.GetSummaries(s.Addr); err != nil {
+		glog.Warningln("UpdateServer GetSummaries", s.Addr, err)
 	} else if rsp.Code != 0 {
-		msg := fmt.Sprintln("GetSummaries server return err", s.Host, rsp.Code)
+		msg := fmt.Sprintln("GetSummaries server return err", s.Addr, rsp.Code)
 		glog.Warningln(msg)
 	} else {
-		summary := &SummaryInfo{Host: s.Host, UpdateTime: time.Now().Unix()}
+		summary := &SummaryInfo{Host: s.Addr, UpdateTime: time.Now().Unix()}
 		summary.Data = rsp.Data
 		s.summaryLock.Lock()
 		s.summary = summary
