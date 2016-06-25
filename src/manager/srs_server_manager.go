@@ -64,7 +64,7 @@ func (s *ServerManager) GetServers(addr string, disType int) (result []string) {
 	servers := s.ipDatabase.DisPatch(addr, disType, DefaultDisPatchCount)
 	result = make([]string, 0)
 	for _, svr := range servers {
-		result = append(result, svr.PublicHost)
+		result = append(result, svr.Addr)
 	}
 
 	return
@@ -184,9 +184,8 @@ func (s *ServerManager) summaryHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 type ReqCreateServer struct {
-	Host       string `json:"host"`
+	Addr       string `json:"addr"`
 	Desc       string `json:"desc"`
-	PublicAddr string `json:"address"`
 	ServerType int    `json:"type"`
 }
 
@@ -202,7 +201,7 @@ func (s *ServerManager) serverHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	server := NewSrsServer(req.Host, req.Desc, req.PublicAddr, req.ServerType)
+	server := NewSrsServer(req.Addr, req.Desc, req.ServerType)
 	if err = s.AddServer(server); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		glog.Warningln("AddsrsServer error", err, server)
