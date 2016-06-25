@@ -112,22 +112,17 @@ type StreamTotalInfo struct {
 // /stream/edge
 func (s *ServerManager) streamHandler(w http.ResponseWriter, r *http.Request) {
 	args := GetUrlParams(r.URL.Path, URL_PATH_STREAMS)
-
-	var paramName string
-	if len(args) < 1 {
-		paramName = STR_TYPE_ORIGIN
-	} else {
-		paramName = args[0]
+	streamType := STR_TYPE_ORIGIN
+	if len(args) >= 1 {
+		streamType = args[0]
 	}
-
-	servers, mutex := s.getServersByName(paramName)
+	servers, mutex := s.getServersByName(streamType)
 	if servers == nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	streams := make(map[string]*StreamInfo)
-
 	mutex.Lock()
 	for h, svr := range servers {
 		streams[h] = svr.GetStreams()
